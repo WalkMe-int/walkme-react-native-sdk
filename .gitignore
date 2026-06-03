@@ -1,0 +1,4 @@
+/android/build
+/node_modules
+*.tgz
+Package.resolved

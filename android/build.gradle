@@ -1,0 +1,56 @@
+def safeExtGet(prop, fallback) {
+    rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+android {
+    namespace 'com.walkme.rn'
+    compileSdkVersion 36
+
+    defaultConfig {
+        minSdkVersion 24
+    }
+
+    flavorDimensions 'walkmeMode'
+    productFlavors {
+        WalkMe {
+            dimension 'walkmeMode'
+        }
+        WalkMeEditor {
+            dimension 'walkmeMode'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}
+
+repositories {
+    maven { url 'https://jitpack.io' }
+    google()
+    mavenCentral()
+}
+
+dependencies {
+    // React Native — provided by the host app
+    compileOnly 'com.facebook.react:react-android:+'
+
+    // WalkMe SDK per flavor — each is a monolith that includes WalkMeSdkApi internally
+    WalkMeImplementation "com.github.WalkMe-int:walkme-android-sdk:${safeExtGet('walkmeVersion', '+')}"
+    WalkMeEditorImplementation "com.github.WalkMe-int:walkme-android-sdk-editor:${safeExtGet('walkmeEditorVersion', '+')}"
+
+    // Compose — required by WalkMe SDK when host app does not use Compose itself
+    implementation platform('androidx.compose:compose-bom:2025.12.00')
+    implementation 'androidx.compose.ui:ui:1.10.6'
+    implementation 'androidx.compose.ui:ui-tooling-preview:1.10.6'
+    implementation 'androidx.compose.material3:material3:1.4.0'
+    implementation 'androidx.compose.material:material-icons-core:1.7.8'
+}
