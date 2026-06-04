@@ -1,4 +1,8 @@
 /android/build
+.build
 /node_modules
 *.tgz
 Package.resolved
+.gitignore
+project.yml
+CLAUDE.md
