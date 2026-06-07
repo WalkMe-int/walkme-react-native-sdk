@@ -2,9 +2,11 @@ require "json"
 
 package = JSON.parse(File.read(File.join(__dir__, "package.json")))
 
-# Flavor selection (mirrors the Android `walkmeMode` build flavor; default "WalkMe").
-# Read declaratively from the consuming app's package.json:
-#   "walkme": { "iosFlavor": "WalkMeEditor" }   // Power Mode
+# Flavor selection. Named `walkmeMode` to match the Android flavor dimension
+# (`flavorDimensions 'walkmeMode'` / `missingDimensionStrategy 'walkmeMode', …`),
+# so the mental model is identical across platforms. Read declaratively from the
+# consuming app's package.json:
+#   "walkme": { "walkmeMode": "WalkMeEditor" }   // Power Mode
 # so a plain `pod install` always picks the right flavor — no per-invocation env
 # var that silently falls back to base WalkMe if forgotten, and it survives
 # IDE/CI-triggered installs. The WALKME_FLAVOR env var still works as an override.
@@ -13,25 +15,25 @@ package = JSON.parse(File.read(File.join(__dir__, "package.json")))
 # installation_root points at the app's `ios/` dir, so its parent is the app
 # root — hoisting-safe regardless of where node_modules placed this package.
 #
-# Resolution: WALKME_FLAVOR env var (override) → app package.json → default
-# "WalkMe". Matching is case-insensitive, and an UNRECOGNIZED non-empty value
-# raises at `pod install` rather than silently building the wrong flavor (e.g.
-# a typo like "Editor" must not quietly fall back to base WalkMe).
-walkme_flavor_raw =
+# Resolution: WALKME_FLAVOR env var (override) → app package.json `walkme.walkmeMode`
+# → default "WalkMe". Matching is case-insensitive, and an UNRECOGNIZED non-empty
+# value raises at `pod install` rather than silently building the wrong flavor
+# (e.g. a typo like "Editor" must not quietly fall back to base WalkMe).
+walkme_mode_raw =
   ENV["WALKME_FLAVOR"] ||
   begin
     app_root = Pod::Config.instance.installation_root&.parent
     app_pkg  = app_root ? (JSON.parse(File.read(File.join(app_root.to_s, "package.json"))) rescue {}) : {}
-    app_pkg.dig("walkme", "iosFlavor")
+    app_pkg.dig("walkme", "walkmeMode")
   end || "WalkMe"
 
 flavor =
-  case walkme_flavor_raw.to_s.downcase
+  case walkme_mode_raw.to_s.downcase
   when "walkmeeditor" then "WalkMeEditor"
   when "walkme"       then "WalkMe"
   else
-    raise "[walkme-react-native-sdk] Unknown iOS flavor #{walkme_flavor_raw.inspect}. " \
-          "Set package.json \"walkme\": { \"iosFlavor\": \"WalkMe\" } or \"WalkMeEditor\" " \
+    raise "[walkme-react-native-sdk] Unknown walkmeMode #{walkme_mode_raw.inspect}. " \
+          "Set package.json \"walkme\": { \"walkmeMode\": \"WalkMe\" } or \"WalkMeEditor\" " \
           "(or the WALKME_FLAVOR env var)."
   end
 

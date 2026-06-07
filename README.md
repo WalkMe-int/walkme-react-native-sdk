@@ -74,12 +74,12 @@ Add a `walkme` block to your **app's** `package.json` (a sibling of `dependencie
     "@walkme/react-native-sdk": "..."
   },
   "walkme": {
-    "iosFlavor": "WalkMeEditor"
+    "walkmeMode": "WalkMeEditor"
   }
 }
 ```
 
-| `iosFlavor` value | SDK pulled |
+| `walkmeMode` value | SDK pulled |
 |---|---|
 | omitted, or `"WalkMe"` | standard **WalkMe** (default) |
 | `"WalkMeEditor"` | Power Mode (**WalkMeEditor**) |
@@ -131,7 +131,7 @@ npx react-native run-ios
 ```
 
 A plain `pod install` selects the flavor from `package.json` and pulls Lottie via the
-bridge. To switch flavors later, edit `walkme.iosFlavor` and re-run `pod install`.
+bridge. To switch flavors later, edit `walkme.walkmeMode` and re-run `pod install`.
 
 > **CI / one-off override:** the `WALKME_FLAVOR` environment variable still works and
 > takes precedence over `package.json`, e.g. `WALKME_FLAVOR=WalkMeEditor pod install`.
@@ -252,8 +252,8 @@ WalkMeSDK.dismissItem();
 
 | Flavor | Android (`android/app/build.gradle`) | iOS (`package.json`) | SDK |
 |---|---|---|---|
-| Standard | `missingDimensionStrategy 'walkmeMode', 'WalkMe'` | `"walkme": { "iosFlavor": "WalkMe" }` (or omit) | WalkMe |
-| Power Mode | `missingDimensionStrategy 'walkmeMode', 'WalkMeEditor'` | `"walkme": { "iosFlavor": "WalkMeEditor" }` | WalkMeEditor |
+| Standard | `missingDimensionStrategy 'walkmeMode', 'WalkMe'` | `"walkme": { "walkmeMode": "WalkMe" }` (or omit) | WalkMe |
+| Power Mode | `missingDimensionStrategy 'walkmeMode', 'WalkMeEditor'` | `"walkme": { "walkmeMode": "WalkMeEditor" }` | WalkMeEditor |
 
 > On iOS, both flavors need Lottie — but the bridge supplies it automatically (see
 > [How the iOS integration scripts work](#how-the-ios-integration-scripts-work)). No

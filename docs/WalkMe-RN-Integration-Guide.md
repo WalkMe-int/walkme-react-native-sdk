@@ -18,7 +18,7 @@ integrating the bridge into a host app on both platforms.
 |---|---|---|
 | Min OS | Android 7.0 (API 24) | iOS 14 |
 | Native SDK source | JitPack (`com.github.WalkMe-int:…`) | Swift Package Manager |
-| Flavor selector | `missingDimensionStrategy 'walkmeMode', …` | `"walkme": { "iosFlavor": … }` in `package.json` |
+| Flavor selector | `missingDimensionStrategy 'walkmeMode', …` | `"walkme": { "walkmeMode": … }` in `package.json` |
 | Required RN version | any supported | **≥ 0.75** (for `spm_dependency`) |
 
 ---
@@ -98,12 +98,12 @@ Add a `walkme` block to your **app's** `package.json` (sibling of `dependencies`
     "@walkme/react-native-sdk": "..."
   },
   "walkme": {
-    "iosFlavor": "WalkMeEditor"
+    "walkmeMode": "WalkMeEditor"
   }
 }
 ```
 
-| `iosFlavor` value | SDK pulled |
+| `walkmeMode` value | SDK pulled |
 |---|---|
 | omitted, or `"WalkMe"` | standard **WalkMe** (default) |
 | `"WalkMeEditor"` | Power Mode (**WalkMeEditor**) |
@@ -154,7 +154,7 @@ npx react-native run-ios
 ```
 
 A plain `pod install` selects the flavor from `package.json` and pulls Lottie via the
-bridge. To switch flavors later, edit `walkme.iosFlavor` and re-run `pod install`.
+bridge. To switch flavors later, edit `walkme.walkmeMode` and re-run `pod install`.
 
 > **CI / one-off override:** the `WALKME_FLAVOR` environment variable still works and
 > takes precedence over `package.json`, e.g. `WALKME_FLAVOR=WalkMeEditor pod install`.
@@ -204,8 +204,8 @@ one `Lottie.framework`; mismatched versions error rather than ship two copies.
 
 | Flavor | Android (`android/app/build.gradle`) | iOS (`package.json`) | Native SDK |
 |---|---|---|---|
-| Standard | `missingDimensionStrategy 'walkmeMode', 'WalkMe'` | `"walkme": { "iosFlavor": "WalkMe" }` (or omit) | WalkMe |
-| Power Mode | `missingDimensionStrategy 'walkmeMode', 'WalkMeEditor'` | `"walkme": { "iosFlavor": "WalkMeEditor" }` | WalkMeEditor |
+| Standard | `missingDimensionStrategy 'walkmeMode', 'WalkMe'` | `"walkme": { "walkmeMode": "WalkMe" }` (or omit) | WalkMe |
+| Power Mode | `missingDimensionStrategy 'walkmeMode', 'WalkMeEditor'` | `"walkme": { "walkmeMode": "WalkMeEditor" }` | WalkMeEditor |
 
 The native module name (`RNWalkMeSdk`) and the JavaScript API are identical regardless of
 flavor or platform.
@@ -238,8 +238,8 @@ See the package README for the full API reference.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `pod install` fails: *Unknown iOS flavor "…"* | Typo in `walkme.iosFlavor` | Use exactly `WalkMe` or `WalkMeEditor` (any casing). |
-| `WalkMe SDK XCFramework is missing` | Wrong/old flavor resolved | Confirm `walkme.iosFlavor` in `package.json`, then re-run `pod install`. |
+| `pod install` fails: *Unknown walkmeMode "…"* | Typo in `walkme.walkmeMode` | Use exactly `WalkMe` or `WalkMeEditor` (any casing). |
+| `WalkMe SDK XCFramework is missing` | Wrong/old flavor resolved | Confirm `walkme.walkmeMode` in `package.json`, then re-run `pod install`. |
 | Launch crash: `dyld: Symbol not found: …LottieLoopMode.loop` | Lottie not built with library evolution | Ensure `walkme_post_install(installer)` runs in your `post_install`. |
 | Launch crash on **device**: `dyld: Library not loaded: @rpath/WalkMe…framework` | WalkMe framework not embedded | Ensure `walkme_post_install(installer)` runs (it adds the embed phase). Simulator works without it; device does not. |
 | Build error: `The file "FBReactNativeSpec.h" couldn't be opened` (target ReactCodegen) | Deleted `ios/build` removed RN's generated codegen | Re-run `pod install` to regenerate, then build. Don't `rm -rf ios/build` between builds. |
