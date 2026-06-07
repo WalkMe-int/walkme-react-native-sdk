@@ -30,7 +30,7 @@ class RNWalkMeSdkModule: NSObject {
     }
 
     @objc func setEventUserVars(_ vars: NSDictionary) {
-        let stringVars = vars.compactMapValues { $0 as? String }
+        let stringVars = (vars as? [String: Any] ?? [:]).compactMapValues { $0 as? String }
         SdkProvider.setEventUserVars(stringVars)
     }
 
@@ -39,7 +39,7 @@ class RNWalkMeSdkModule: NSObject {
     }
 
     @objc func sendEvent(_ name: String, attributes: NSDictionary?) {
-        let stringAttrs = attributes?.compactMapValues { $0 as? String }
+        let stringAttrs = (attributes as? [String: Any])?.compactMapValues { $0 as? String }
         SdkProvider.sendEvent(name: name, attributes: stringAttrs)
     }
 }

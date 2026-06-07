@@ -6,9 +6,9 @@ module.exports = {
         packageImportPath: 'import com.walkme.rn.RNWalkMeSdkPackage;',
         packageInstance: 'new RNWalkMeSdkPackage()',
       },
-      // iOS is integrated via SPM — add the package manually in Xcode.
-      // No podspec is provided intentionally.
-      ios: null,
+      // iOS is autolinked via walkme-react-native-sdk.podspec, which pulls the
+      // SPM-only WalkMe SDK through React Native's spm_dependency helper (RN >= 0.75).
+      ios: {},
     },
   },
 };

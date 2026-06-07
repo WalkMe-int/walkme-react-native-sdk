@@ -54,23 +54,32 @@ ext {
 
 ## iOS Setup
 
-### 1. Install CocoaPods dependencies
+> **Requires React Native ≥ 0.75.** The WalkMe iOS SDK ships only via Swift Package
+> Manager, and the bridge pulls it in using React Native's `spm_dependency` helper,
+> which was introduced in RN 0.75.
 
-```sh
-cd ios && pod install
+### 1. Enable dynamic frameworks
+
+`spm_dependency` requires dynamic framework linking. In your `ios/Podfile`:
+
+```ruby
+use_frameworks! :linkage => :dynamic
 ```
 
-### 2. Add the bridge package in Xcode
+### 2. Install pods
 
-- Open your `.xcworkspace` in Xcode
-- **File → Add Package Dependencies**
-- Add the bridge package URL (or local path during development)
-- Select the product that matches your flavor:
-  - **`RNWalkMeSdkWalkMe`** — standard SDK
-  - **`RNWalkMeSdkWalkMeEditor`** — Power Mode SDK
-- Add to your app target
+The bridge is autolinked — no manual Xcode package step is needed.
 
-The WalkMe iOS SDK is pulled in automatically as a transitive SPM dependency.
+```sh
+# Standard WalkMe SDK (default)
+cd ios && pod install
+
+# Power Mode (WalkMeEditor) — select the flavor at install time
+cd ios && WALKME_FLAVOR=WalkMeEditor pod install
+```
+
+The correct WalkMe SPM package (`walkme-ios-sdk` or `walkme-ios-sdk-editor`) is pulled
+in automatically based on `WALKME_FLAVOR`.
 
 > No `AppDelegate` changes are needed — `RCT_EXTERN_MODULE` auto-registers the native module.
 
@@ -149,10 +158,10 @@ WalkMeSDK.dismissItem();
 
 ## Flavors
 
-| Flavor | Android | iOS SPM product | SDK |
+| Flavor | Android | iOS (`pod install`) | SDK |
 |---|---|---|---|
-| Standard | `missingDimensionStrategy 'walkmeMode', 'WalkMe'` | `RNWalkMeSdkWalkMe` | WalkMe |
-| Power Mode | `missingDimensionStrategy 'walkmeMode', 'WalkMeEditor'` | `RNWalkMeSdkWalkMeEditor` | WalkMeEditor |
+| Standard | `missingDimensionStrategy 'walkmeMode', 'WalkMe'` | `pod install` (default) | WalkMe |
+| Power Mode | `missingDimensionStrategy 'walkmeMode', 'WalkMeEditor'` | `WALKME_FLAVOR=WalkMeEditor pod install` | WalkMeEditor |
 
 ---
 

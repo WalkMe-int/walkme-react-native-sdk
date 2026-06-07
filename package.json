@@ -8,13 +8,14 @@
     "react-native",
     "walkme",
     "android",
+    "ios",
     "sdk"
   ],
   "license": "UNLICENSED",
   "peerDependencies": {
-    "react-native": ">=0.60.0"
+    "react-native": ">=0.75.0"
   },
   "devDependencies": {
-    "react-native": ">=0.60.0"
+    "react-native": ">=0.75.0"
   }
 }

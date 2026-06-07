@@ -17,8 +17,15 @@ enum SdkProvider {
     }
 
     static func stop()                                              { WalkMePowerMode.stop() }
-    static func startItem(byID id: Int, deepLink: String?)          { WalkMePowerMode.startItem(byID: id, deepLink: deepLink) }
-    static func dismissItem()                                       { WalkMePowerMode.dismissItem() }
+
+    // WalkMePowerMode exposes no "start item by ID" / "dismiss item" entry point.
+    // Kept as logged no-ops so the JS API surface stays stable across flavors.
+    static func startItem(byID id: Int, deepLink: String?) {
+        print("[WalkMeSdk] startItemByID is not supported by this SDK version (id: \(id))")
+    }
+    static func dismissItem() {
+        print("[WalkMeSdk] dismissItem is not supported by this SDK version")
+    }
     static func setUserId(_ userId: String)                         { WalkMePowerMode.setUserId(userId) }
     static func setVariable(key: String, value: Any)                { WalkMePowerMode.setVariable(key: key, value: value) }
     static func setEventUserVars(_ vars: [String: String])          { WalkMePowerMode.setEventUserVars(vars) }

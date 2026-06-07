@@ -17,8 +17,15 @@ enum SdkProvider {
     }
 
     static func stop()                                              { WalkMeSDK.stop() }
-    static func startItem(byID id: Int, deepLink: String?)          { WalkMeSDK.startItem(byID: id, deepLink: deepLink) }
-    static func dismissItem()                                       { WalkMeSDK.dismissItem() }
+
+    // The WalkMe SDK exposes no "start item by ID" / "dismiss item" entry point.
+    // Kept as logged no-ops so the JS API surface stays stable across flavors.
+    static func startItem(byID id: Int, deepLink: String?) {
+        print("[WalkMeSdk] startItemByID is not supported by this SDK version (id: \(id))")
+    }
+    static func dismissItem() {
+        print("[WalkMeSdk] dismissItem is not supported by this SDK version")
+    }
     static func setUserId(_ userId: String)                         { WalkMeSDK.setUserId(userId) }
     static func setVariable(key: String, value: Any)                { WalkMeSDK.setVariable(key: key, value: value) }
     static func setEventUserVars(_ vars: [String: String])          { WalkMeSDK.setEventUserVars(vars) }
