@@ -56,119 +56,123 @@ ext {
 
 > **Requires React Native ≥ 0.75.** The WalkMe iOS SDK ships only via Swift Package
 > Manager, and the bridge pulls it in using React Native's `spm_dependency` helper,
-> which was introduced in RN 0.75.
+> introduced in RN 0.75. `spm_dependency` requires **dynamic frameworks**.
 
-### 1. Enable dynamic frameworks
+The bridge does the heavy lifting: it pulls the correct WalkMe SPM package **and** the
+matching [Lottie](https://github.com/airbnb/lottie-ios) dependency it needs, and it ships
+the required CocoaPods `post_install` logic as a helper you call from your Podfile. You do
+**not** install `lottie-react-native`, you do **not** set any environment variable, and you
+do **not** copy any framework-embedding script.
 
-`spm_dependency` requires dynamic framework linking. In your `ios/Podfile`:
+### 1. Select the flavor in `package.json`
+
+Add a `walkme` block to your **app's** `package.json` (a sibling of `dependencies`):
+
+```json
+{
+  "dependencies": {
+    "@walkme/react-native-sdk": "..."
+  },
+  "walkme": {
+    "iosFlavor": "WalkMeEditor"
+  }
+}
+```
+
+| `iosFlavor` value | SDK pulled |
+|---|---|
+| omitted, or `"WalkMe"` | standard **WalkMe** (default) |
+| `"WalkMeEditor"` | Power Mode (**WalkMeEditor**) |
+
+It's read at `pod install` time, is **case-insensitive**, and an unrecognized value
+(e.g. a typo like `"Editor"`) **fails the install with a clear error** — so you never
+silently build the wrong SDK. This mirrors the Android `walkmeMode` flavor: declare it
+once, in source control.
+
+### 2. Wire up the `ios/Podfile`
+
+Three additions, alongside what RN's template already generates:
 
 ```ruby
+# (a) At the top, next to the react-native require — load the bridge's CocoaPods
+#     helpers. Resolved via node so it's correct regardless of node_modules layout
+#     (hoisting / Yarn or npm workspaces / pnpm), the same way RN resolves its own.
+require Pod::Executable.execute_command('node', ['-p',
+  'require.resolve(
+    "@walkme/react-native-sdk/scripts/walkme_podfile.rb",
+    {paths: [process.argv[1]]},
+  )', __dir__]).strip
+
+# (b) The bridge requires dynamic frameworks (spm_dependency mandates this).
 use_frameworks! :linkage => :dynamic
-```
 
-### 2. Install pods
+target 'YourApp' do
+  config = use_native_modules!
+  use_react_native!(:path => config[:reactNativePath])
 
-The bridge is autolinked — no manual Xcode package step is needed.
+  post_install do |installer|
+    react_native_post_install(installer, config[:reactNativePath], :mac_catalyst_enabled => false)
 
-```sh
-# Standard WalkMe SDK (default)
-cd ios && pod install
-
-# Power Mode (WalkMeEditor) — select the flavor at install time
-cd ios && WALKME_FLAVOR=WalkMeEditor pod install
-```
-
-The correct WalkMe SPM package (`walkme-ios-sdk` or `walkme-ios-sdk-editor`) is pulled
-in automatically based on `WALKME_FLAVOR`.
-
-> No `AppDelegate` changes are needed — `RCT_EXTERN_MODULE` auto-registers the native module.
-
-### 3. Add Lottie (required for both flavors)
-
-**Both** the standard **WalkMe** and **WalkMeEditor** flavors depend on
-[Lottie](https://github.com/airbnb/lottie-ios) at runtime. Add it to your app — for
-example via `lottie-react-native`:
-
-```sh
-npm install lottie-react-native
-```
-
-### 4. Configure the Podfile `post_install`
-
-Add **two** steps to the `post_install` block of your `ios/Podfile`:
-
-1. **Build Lottie with library evolution.** The WalkMe frameworks are compiled against a
-   **resilient** (library-evolution) build of Lottie. `lottie-react-native`'s `lottie-ios`
-   pod is built from source *without* it, so the app crashes at launch with
-   `dyld: Symbol not found: ...LottieLoopMode.loop` unless you set
-   `BUILD_LIBRARY_FOR_DISTRIBUTION`.
-2. **Embed the WalkMe framework.** `spm_dependency` links the WalkMe SPM framework to the
-   Pods target but never copies it into the app bundle. On **device** dyld only searches the
-   app bundle, so without this the app aborts at launch with
-   `dyld: Library not loaded: @rpath/WalkMeEditor.framework`. **Required for device/release
-   builds.** (The simulator happens to run without it — it can load the framework from the
-   build folder — but a device cannot.)
-
-```ruby
-post_install do |installer|
-  react_native_post_install(installer, config[:reactNativePath], :mac_catalyst_enabled => false)
-
-  # (1) Build Lottie with library evolution so its ABI matches the prebuilt WalkMe frameworks.
-  installer.pods_project.targets.each do |t|
-    if t.name == 'lottie-ios'
-      t.build_configurations.each do |c|
-        c.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
-      end
-    end
-  end
-
-  # (2) Embed + codesign the WalkMe SPM framework into the app bundle (required on device).
-  embed_phase_name = '[WalkMe] Embed SPM Frameworks'
-  embed_script = <<~SH
-    set -e
-    DST="${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}"
-    mkdir -p "$DST"
-    for SRC in "${BUILT_PRODUCTS_DIR}"/WalkMe*.framework; do
-      [ -d "$SRC" ] || continue
-      FW="$(basename "$SRC")"
-      /usr/bin/rsync -a --delete "$SRC/" "$DST/$FW/"
-      /usr/bin/codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY:--}" "$DST/$FW"
-    done
-  SH
-
-  installer.aggregate_targets.each do |agg|
-    project = agg.user_project
-    next unless project
-    agg.user_target_uuids.each do |uuid|
-      native_target = project.objects_by_uuid[uuid]
-      next unless native_target.respond_to?(:shell_script_build_phases)
-      phase = native_target.shell_script_build_phases.find { |p| p.name == embed_phase_name }
-      phase ||= native_target.new_shell_script_build_phase(embed_phase_name)
-      phase.shell_script = embed_script
-      phase.run_only_for_deployment_postprocessing = '0'
-    end
-    project.save
+    # (c) Apply WalkMe's required build fixes: Lottie ABI + WalkMe SPM framework embed.
+    #     See "How the iOS integration scripts work" below.
+    walkme_post_install(installer)
   end
 end
 ```
 
-### 5. Install & run (Power Mode example)
+> No `AppDelegate` changes are needed — `RCT_EXTERN_MODULE` auto-registers the native module.
+
+### 3. Install pods & run
 
 ```sh
-# 1. Install JS deps (bridge + Lottie)
 npm install
-
-# 2. Install pods with the WalkMeEditor flavor selected
-cd ios && WALKME_FLAVOR=WalkMeEditor pod install && cd ..
-
-# 3. Build & run
+cd ios && pod install && cd ..
 npx react-native run-ios
 ```
 
-> `WALKME_FLAVOR` is read at `pod install` time. Omitting it falls back to the standard
-> `WalkMe` flavor, so a plain `pod install` (or `npx react-native run-ios` without first
-> running the flavored `pod install`) will pull the wrong SDK. Re-run the flavored
-> `pod install` whenever pods are regenerated.
+A plain `pod install` selects the flavor from `package.json` and pulls Lottie via the
+bridge. To switch flavors later, edit `walkme.iosFlavor` and re-run `pod install`.
+
+> **CI / one-off override:** the `WALKME_FLAVOR` environment variable still works and
+> takes precedence over `package.json`, e.g. `WALKME_FLAVOR=WalkMeEditor pod install`.
+
+---
+
+## How the iOS integration scripts work
+
+The bridge ships **`scripts/walkme_podfile.rb`** inside the npm package and exposes one
+public function — `walkme_post_install(installer)` — that you call from your Podfile's
+`post_install`. It performs two fixes that **CocoaPods cannot do from a podspec alone**: a
+podspec can only configure its *own* pod target, not another pod (`lottie-ios`) or the app
+bundle. Keeping the logic in the bridge means it's version-locked to the SDK and you never
+copy/paste it.
+
+### `walkme_fix_lottie_abi(installer)` — Lottie ABI
+Sets `BUILD_LIBRARY_FOR_DISTRIBUTION = YES` on the `lottie-ios` pod. The prebuilt WalkMe
+frameworks are compiled against a **library-evolution (resilient)** build of Lottie, so they
+link Lottie's resilient symbols (e.g. `LottieLoopMode.loop`). The `lottie-ios` pod builds
+from source *without* library evolution, so those symbols are absent and the app crashes at
+launch with `dyld: Symbol not found: …LottieLoopMode.loop` — even though `Lottie.framework`
+is embedded. Building Lottie with library evolution produces the matching ABI.
+
+### `walkme_embed_spm_frameworks(installer)` — embed the WalkMe framework
+Rsyncs and codesigns the WalkMe SPM framework into the app bundle. `spm_dependency` links
+the framework to the Pods target but never embeds it in the app. On a **physical device**
+dyld only searches the app bundle, so without this the app aborts at launch with
+`dyld: Library not loaded: @rpath/WalkMeEditor.framework`. **Required for device/release
+builds.** (The simulator can load the framework from the build folder, so it happens to run
+without embedding — a device cannot.) The build phase is found-or-created by name, so
+re-running `pod install` never duplicates it.
+
+### Why Lottie comes from the bridge
+The podspec declares `lottie-ios`, **pinned to the exact version the WalkMe frameworks were
+built against**, so a single standalone Lottie pod is shared. If your app *also* uses Lottie
+(e.g. via `lottie-react-native`), pin it to that same version so CocoaPods resolves one
+`Lottie.framework` — mismatched versions will error rather than ship two copies.
+
+> The only thing CocoaPods won't let the bridge do automatically is inject the
+> `post_install` call itself (that needs a CocoaPods plugin). Hence the single
+> `walkme_post_install(installer)` line in your Podfile.
 
 
 ---
@@ -246,12 +250,14 @@ WalkMeSDK.dismissItem();
 
 ## Flavors
 
-| Flavor | Android | iOS (`pod install`) | SDK |
+| Flavor | Android (`android/app/build.gradle`) | iOS (`package.json`) | SDK |
 |---|---|---|---|
-| Standard | `missingDimensionStrategy 'walkmeMode', 'WalkMe'` | `pod install` (default) | WalkMe |
-| Power Mode | `missingDimensionStrategy 'walkmeMode', 'WalkMeEditor'` | `WALKME_FLAVOR=WalkMeEditor pod install` | WalkMeEditor |
+| Standard | `missingDimensionStrategy 'walkmeMode', 'WalkMe'` | `"walkme": { "iosFlavor": "WalkMe" }` (or omit) | WalkMe |
+| Power Mode | `missingDimensionStrategy 'walkmeMode', 'WalkMeEditor'` | `"walkme": { "iosFlavor": "WalkMeEditor" }` | WalkMeEditor |
 
-> **Both flavors require Lottie** on iOS — see [iOS Setup → Add Lottie](#3-add-lottie-required-for-both-flavors).
+> On iOS, both flavors need Lottie — but the bridge supplies it automatically (see
+> [How the iOS integration scripts work](#how-the-ios-integration-scripts-work)). No
+> `lottie-react-native` install is required.
 
 ---
 
