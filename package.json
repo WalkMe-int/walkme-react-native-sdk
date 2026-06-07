@@ -12,6 +12,15 @@
     "sdk"
   ],
   "license": "UNLICENSED",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "react-native.config.js",
+    "walkme-react-native-sdk.podspec",
+    "ios/",
+    "android/",
+    "scripts/"
+  ],
   "peerDependencies": {
     "react-native": ">=0.75.0"
   },
