@@ -44,19 +44,6 @@ Pod::Spec.new do |s|
         requirement: { kind: "upToNextMajorVersion", minimumVersion: "1.0.0" },
         products: ["WalkMeEditor"]
       )
-
-      # The WalkMeEditor (Power Mode) framework depends on Lottie but does NOT
-      # declare it (its Package.swift expects the host to provide Lottie).
-      # We MUST declare it here for two reasons:
-      #   1. Build time: WalkMeEditor.swiftinterface contains `import Lottie`,
-      #      so the `Lottie` module must be in this pod's search path to compile,
-      #      otherwise: "error: unable to resolve module dependency: 'Lottie'".
-      #   2. Runtime: WalkMeEditor hard-links `@rpath/Lottie.framework/Lottie`.
-      # The `lottie-ios` pod (module `Lottie`) under `use_frameworks! :linkage
-      # => :dynamic` builds the correctly-named `Lottie.framework` AND is
-      # auto-embedded by CocoaPods. A loose constraint reuses whatever Lottie
-      # the app already has (e.g. via lottie-react-native) without conflict.
-      s.dependency "lottie-ios", "~> 4.0"
     else
       spm_dependency(s,
         url: "https://github.com/WalkMe-int/walkme-ios-sdk",
@@ -64,6 +51,24 @@ Pod::Spec.new do |s|
         products: ["WalkMe"]
       )
     end
+
+    # BOTH WalkMe SDK flavors depend on Lottie at runtime but do NOT declare it
+    # (their Package.swift expects the host app to provide Lottie). We MUST declare
+    # it here for two reasons:
+    #   1. Build time: the WalkMe*.swiftinterface contains `import Lottie`, so the
+    #      `Lottie` module must be on this pod's search path to compile, otherwise:
+    #      "error: unable to resolve module dependency: 'Lottie'".
+    #   2. Runtime: the WalkMe framework hard-links `@rpath/Lottie.framework/Lottie`.
+    # The `lottie-ios` pod (module `Lottie`) under `use_frameworks! :linkage =>
+    # :dynamic` builds the correctly-named `Lottie.framework` AND is auto-embedded
+    # by CocoaPods. A loose constraint reuses whatever Lottie the app already has
+    # (e.g. via lottie-react-native) without conflict.
+    #
+    # NOTE: the consuming app must build lottie-ios with library evolution
+    # (BUILD_LIBRARY_FOR_DISTRIBUTION=YES) so its ABI matches the prebuilt WalkMe
+    # frameworks, otherwise: dyld "Symbol not found: ...LottieLoopMode.loop" at
+    # launch. See README "iOS Setup".
+    s.dependency "lottie-ios", "~> 4.0"
   else
     raise "[walkme-react-native-sdk] React Native >= 0.75.0 is required: the SPM-only " \
           "WalkMe iOS SDK is integrated via the `spm_dependency` helper, which is unavailable " \
