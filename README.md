@@ -93,27 +93,27 @@ example via `lottie-react-native`:
 npm install lottie-react-native
 ```
 
-WalkMeEditor's binary framework is compiled against a **library-evolution (resilient)**
-build of Lottie. `lottie-react-native` provides Lottie through the from-source
-`lottie-ios` CocoaPod, which is **not** built with library evolution — so the app
-crashes at launch with:
+### 4. Configure the Podfile `post_install`
 
-```
-dyld: Symbol not found: _$s6Lottie0A8LoopModeO4loopyA2CmFWC  (LottieLoopMode.loop)
-Referenced from: .../WalkMeEditor.framework/WalkMeEditor
-Expected in:     .../Lottie.framework/Lottie
-```
+Add **two** steps to the `post_install` block of your `ios/Podfile`:
 
-Fix it by building `lottie-ios` with library evolution. Add this to the `post_install`
-block of your `ios/Podfile`:
+1. **Build Lottie with library evolution.** The WalkMe frameworks are compiled against a
+   **resilient** (library-evolution) build of Lottie. `lottie-react-native`'s `lottie-ios`
+   pod is built from source *without* it, so the app crashes at launch with
+   `dyld: Symbol not found: ...LottieLoopMode.loop` unless you set
+   `BUILD_LIBRARY_FOR_DISTRIBUTION`.
+2. **Embed the WalkMe framework.** `spm_dependency` links the WalkMe SPM framework to the
+   Pods target but never copies it into the app bundle. On **device** dyld only searches the
+   app bundle, so without this the app aborts at launch with
+   `dyld: Library not loaded: @rpath/WalkMeEditor.framework`. **Required for device/release
+   builds.** (The simulator happens to run without it — it can load the framework from the
+   build folder — but a device cannot.)
 
 ```ruby
 post_install do |installer|
   react_native_post_install(installer, config[:reactNativePath], :mac_catalyst_enabled => false)
 
-  # WalkMeEditor links Lottie's resilient (library-evolution) ABI. lottie-react-native's
-  # lottie-ios pod is built from source without it, so build it with library evolution to
-  # match — otherwise the app crashes at launch with "Symbol not found: ...LottieLoopMode.loop".
+  # (1) Build Lottie with library evolution so its ABI matches the prebuilt WalkMe frameworks.
   installer.pods_project.targets.each do |t|
     if t.name == 'lottie-ios'
       t.build_configurations.each do |c|
@@ -121,10 +121,38 @@ post_install do |installer|
       end
     end
   end
+
+  # (2) Embed + codesign the WalkMe SPM framework into the app bundle (required on device).
+  embed_phase_name = '[WalkMe] Embed SPM Frameworks'
+  embed_script = <<~SH
+    set -e
+    DST="${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}"
+    mkdir -p "$DST"
+    for SRC in "${BUILT_PRODUCTS_DIR}"/WalkMe*.framework; do
+      [ -d "$SRC" ] || continue
+      FW="$(basename "$SRC")"
+      /usr/bin/rsync -a --delete "$SRC/" "$DST/$FW/"
+      /usr/bin/codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY:--}" "$DST/$FW"
+    done
+  SH
+
+  installer.aggregate_targets.each do |agg|
+    project = agg.user_project
+    next unless project
+    agg.user_target_uuids.each do |uuid|
+      native_target = project.objects_by_uuid[uuid]
+      next unless native_target.respond_to?(:shell_script_build_phases)
+      phase = native_target.shell_script_build_phases.find { |p| p.name == embed_phase_name }
+      phase ||= native_target.new_shell_script_build_phase(embed_phase_name)
+      phase.shell_script = embed_script
+      phase.run_only_for_deployment_postprocessing = '0'
+    end
+    project.save
+  end
 end
 ```
 
-### 4. Install & run (Power Mode example)
+### 5. Install & run (Power Mode example)
 
 ```sh
 # 1. Install JS deps (bridge + Lottie)
