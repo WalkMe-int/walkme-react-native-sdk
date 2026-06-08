@@ -52,30 +52,55 @@ end
 # products dir — but device cannot.) This adds a build phase that rsyncs the
 # framework in and codesigns it with the app's identity. Idempotent: the phase is
 # found-or-created by name, so re-running `pod install` never duplicates it.
+#
+# Scoped narrowly on purpose: the phase is added only to embeddable targets
+# (apps/extensions, not test/library targets), and the build script touches only
+# the two known WalkMe product names (no wildcard that could match a host app's
+# own framework). Only one flavor is ever linked, so the other name is removed
+# from the bundle if a stale copy lingers (clean flavor switches). Signing mirrors
+# CocoaPods' own embed script: sign only when Xcode is actually signing, and
+# preserve the framework's identifier/entitlements.
 def walkme_embed_spm_frameworks(installer)
   embed_phase_name = '[WalkMe] Embed SPM Frameworks'
   embed_script = <<~SH
-    set -e
+    set -euo pipefail
+    [ -n "${BUILT_PRODUCTS_DIR:-}" ] || { echo "error: BUILT_PRODUCTS_DIR unset"; exit 1; }
+    [ -n "${FRAMEWORKS_FOLDER_PATH:-}" ] || exit 0
     DST="${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}"
     mkdir -p "$DST"
-    for SRC in "${BUILT_PRODUCTS_DIR}"/WalkMe*.framework; do
-      [ -d "$SRC" ] || continue
-      FW="$(basename "$SRC")"
-      /usr/bin/rsync -a --delete "$SRC/" "$DST/$FW/"
-      /usr/bin/codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY:--}" "$DST/$FW"
+    for FW in WalkMe.framework WalkMeEditor.framework; do
+      SRC="${BUILT_PRODUCTS_DIR}/${FW}"
+      if [ -d "$SRC" ]; then
+        /usr/bin/rsync -a --delete "$SRC/" "$DST/$FW/"
+        if [ -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" ] \\
+           && [ "${CODE_SIGNING_REQUIRED:-}" != "NO" ] \\
+           && [ "${CODE_SIGNING_ALLOWED:-}" != "NO" ]; then
+          /usr/bin/codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY}" \\
+            --preserve-metadata=identifier,entitlements,flags "$DST/$FW"
+        fi
+      else
+        rm -rf "$DST/$FW"
+      fi
     done
   SH
 
+  embeddable = [:application, :app_extension, :watch2_app, :watch2_extension]
   installer.aggregate_targets.each do |agg|
     project = agg.user_project
     next unless project
     agg.user_target_uuids.each do |uuid|
       native_target = project.objects_by_uuid[uuid]
-      next unless native_target.respond_to?(:shell_script_build_phases)
-      phase = native_target.shell_script_build_phases.find { |p| p.name == embed_phase_name }
-      phase ||= native_target.new_shell_script_build_phase(embed_phase_name)
-      phase.shell_script = embed_script
-      phase.run_only_for_deployment_postprocessing = '0'
+      next unless native_target.respond_to?(:symbol_type)
+      existing = native_target.shell_script_build_phases.select { |p| p.name == embed_phase_name }
+      if embeddable.include?(native_target.symbol_type)
+        phase = existing.first || native_target.new_shell_script_build_phase(embed_phase_name)
+        phase.shell_script = embed_script
+        phase.run_only_for_deployment_postprocessing = '0'
+      else
+        # Not an embeddable target (e.g. a unit-test bundle) — strip any phase a
+        # previous version of this script may have added there.
+        existing.each { |p| native_target.build_phases.delete(p) }
+      end
     end
     project.save
   end
