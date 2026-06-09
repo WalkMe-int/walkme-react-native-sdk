@@ -131,11 +131,8 @@ require Pod::Executable.execute_command('node', ['-p',
 use_frameworks! :linkage => :dynamic
 
 target 'YourApp' do
-  config = use_native_modules!
-  use_react_native!(:path => config[:reactNativePath])
-
-  post_install do |installer|
-    react_native_post_install(installer, config[:reactNativePath], :mac_catalyst_enabled => false)
+  
+  ...
 
     # (c) Apply WalkMe's required build fixes: Lottie ABI + WalkMe SPM framework embed.
     walkme_post_install(installer)
