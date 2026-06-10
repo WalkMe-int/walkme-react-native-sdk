@@ -1,0 +1,33 @@
+import groovy.json.JsonSlurper
+
+def rootPackageJson = new File(rootProject.projectDir, '../package.json')
+
+if (!rootPackageJson.exists()) {
+    throw new GradleException("[WalkMe] Could not find package.json at ${rootPackageJson.absolutePath}")
+}
+
+def packageJson = new JsonSlurper().parse(rootPackageJson)
+def walkmeMode = packageJson?.walkme?.walkmeMode ?: 'WalkMe'
+
+def validModes = ['WalkMe', 'WalkMeEditor']
+if (!validModes.any { it.equalsIgnoreCase(walkmeMode) }) {
+    throw new GradleException("[WalkMe] Invalid walkmeMode '${walkmeMode}' in package.json. Valid values: ${validModes}")
+}
+
+// Normalize casing
+walkmeMode = validModes.find { it.equalsIgnoreCase(walkmeMode) }
+
+// Add JitPack so the WalkMe SDK can be resolved without any manual repo config
+allprojects {
+    repositories {
+        maven { url 'https://jitpack.io' }
+    }
+}
+
+android {
+    defaultConfig {
+        missingDimensionStrategy 'walkmeMode', walkmeMode
+    }
+}
+
+logger.lifecycle("[WalkMe] Using flavor: ${walkmeMode}")

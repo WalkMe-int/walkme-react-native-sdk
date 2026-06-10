@@ -2,6 +2,7 @@
 .build
 /node_modules
 *.tgz
+*.pdf
 Package.resolved
 .gitignore
 project.yml
