@@ -46,20 +46,30 @@ class RNWalkMeSdkModule: RCTEventEmitter, WMItemCallbacksDelegate {
         SdkProvider.sendEvent(name: name, attributes: stringAttrs)
     }
 
+    // Dispatched to main so this runs AFTER start()'s queued block on the same
+    // serial queue. Otherwise this runs synchronously before start() and the
+    // delegate is dropped when start() initializes the SDK.
     @objc func setItemInfoListener(_ enable: Bool) {
-        SdkProvider.setItemCallbacksDelegate(enable ? self : nil)
+        DispatchQueue.main.async {
+            SdkProvider.setItemCallbacksDelegate(enable ? self : nil)
+        }
     }
 
+    // Dispatched to main for the same reason as setItemInfoListener: it must run
+    // after start() so the handler is attached to the initialized analytics
+    // manager rather than being wiped by start().
     @objc func setAnalyticsListener(_ enable: Bool) {
-        if enable {
-            SdkProvider.setAnalyticsHandler { [weak self] info in
-                self?.sendEvent(withName: "walkme_analytics_event", body: [
-                    "eventName": info.eventType.name,
-                    "params": info.payloadString,
-                ])
+        DispatchQueue.main.async { [weak self] in
+            if enable {
+                SdkProvider.setAnalyticsHandler { [weak self] info in
+                    self?.sendEvent(withName: "walkme_analytics_event", body: [
+                        "eventName": info.eventType.name,
+                        "params": info.payloadString,
+                    ])
+                }
+            } else {
+                SdkProvider.setAnalyticsHandler(nil)
             }
-        } else {
-            SdkProvider.setAnalyticsHandler(nil)
         }
     }
 
