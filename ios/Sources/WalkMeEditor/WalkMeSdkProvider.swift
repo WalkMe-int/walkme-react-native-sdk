@@ -1,4 +1,3 @@
-import WalkMe
 import WalkMeEditor
 
 /// Bridges `SdkProvider` calls to the `WalkMePowerMode` entry point.

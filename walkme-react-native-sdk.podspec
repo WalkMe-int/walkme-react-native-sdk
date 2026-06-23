@@ -19,13 +19,15 @@ package = JSON.parse(File.read(File.join(__dir__, "package.json")))
 # → default "WalkMe". Matching is case-insensitive, and an UNRECOGNIZED non-empty
 # value raises at `pod install` rather than silently building the wrong flavor
 # (e.g. a typo like "Editor" must not quietly fall back to base WalkMe).
+# Read the consuming app's package.json once; both the flavor and the optional
+# SDK-version pin are resolved declaratively from its `walkme` block.
+app_root = Pod::Config.instance.installation_root&.parent
+app_pkg  = app_root ? (JSON.parse(File.read(File.join(app_root.to_s, "package.json"))) rescue {}) : {}
+
 walkme_mode_raw =
   ENV["WALKME_FLAVOR"] ||
-  begin
-    app_root = Pod::Config.instance.installation_root&.parent
-    app_pkg  = app_root ? (JSON.parse(File.read(File.join(app_root.to_s, "package.json"))) rescue {}) : {}
-    app_pkg.dig("walkme", "walkmeMode")
-  end || "WalkMe"
+  app_pkg.dig("walkme", "walkmeMode") ||
+  "WalkMe"
 
 flavor =
   case walkme_mode_raw.to_s.downcase
@@ -35,6 +37,25 @@ flavor =
     raise "[walkme-react-native-sdk] Unknown walkmeMode #{walkme_mode_raw.inspect}. " \
           "Set package.json \"walkme\": { \"walkmeMode\": \"WalkMe\" } or \"WalkMeEditor\" " \
           "(or the WALKME_FLAVOR env var)."
+  end
+
+# Optional WalkMe iOS SDK version pin. Resolution: WALKME_SDK_VERSION env
+# (one-off override) → app package.json `walkme.sdkVersion` → unset.
+#   "walkme": { "walkmeMode": "WalkMeEditor", "sdkVersion": "1.2.0" }
+# When UNSET the bridge always pulls the latest published SDK release (any
+# minor/major) at `pod install` time. When SET it pins that exact version.
+# Either way the host is responsible for choosing a version the bridge's code
+# supports. Applied identically to both flavors.
+walkme_sdk_min_version = "1.0.0"
+walkme_sdk_version =
+  ENV["WALKME_SDK_VERSION"] ||
+  app_pkg.dig("walkme", "sdkVersion")
+
+spm_requirement =
+  if walkme_sdk_version && !walkme_sdk_version.to_s.strip.empty?
+    { kind: "exactVersion", version: walkme_sdk_version.to_s.strip }
+  else
+    { kind: "versionRange", minimumVersion: walkme_sdk_min_version, maximumVersion: "10000.0.0" }
   end
 
 Pod::Spec.new do |s|
@@ -71,13 +92,13 @@ Pod::Spec.new do |s|
     if flavor == "WalkMeEditor"
       spm_dependency(s,
         url: "https://github.com/WalkMe-int/walkme-ios-sdk-editor",
-        requirement: { kind: "upToNextMajorVersion", minimumVersion: "1.0.0" },
+        requirement: spm_requirement,
         products: ["WalkMeEditor"]
       )
     else
       spm_dependency(s,
         url: "https://github.com/WalkMe-int/walkme-ios-sdk",
-        requirement: { kind: "upToNextMajorVersion", minimumVersion: "1.0.0" },
+        requirement: spm_requirement,
         products: ["WalkMe"]
       )
     end

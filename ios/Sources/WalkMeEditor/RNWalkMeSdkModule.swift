@@ -1,6 +1,5 @@
 import Foundation
 import React
-import WalkMe
 import WalkMeEditor
 
 @objc(RNWalkMeSdk)
