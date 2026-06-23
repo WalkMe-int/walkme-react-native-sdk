@@ -16,19 +16,15 @@ enum SdkProvider {
         WalkMeSDK.start(options: options)
     }
 
-    static func stop()                                              { WalkMeSDK.stop() }
-
-    // The WalkMe SDK exposes no "start item by ID" / "dismiss item" entry point.
-    // Kept as logged no-ops so the JS API surface stays stable across flavors.
-    static func startItem(byID id: Int, deepLink: String?) {
-        print("[WalkMeSdk] startItemByID is not supported by this SDK version (id: \(id))")
-    }
-    static func dismissItem() {
-        print("[WalkMeSdk] dismissItem is not supported by this SDK version")
-    }
-    static func setUserId(_ userId: String)                         { WalkMeSDK.setUserId(userId) }
-    static func setVariable(key: String, value: Any)                { WalkMeSDK.setVariable(key: key, value: value) }
-    static func setEventUserVars(_ vars: [String: String])          { WalkMeSDK.setEventUserVars(vars) }
-    static func setLanguage(_ language: String)                     { WalkMeSDK.setLanguage(language) }
-    static func sendEvent(name: String, attributes: [String: String]?) { WalkMeSDK.sendEvent(name: name, attributes: attributes) }
+    static func stop()                                                  { WalkMeSDK.stop() }
+    static func restart()                                               { WalkMeSDK.restart() }
+    static func startItem(byID id: Int, deepLink: String?)              { WalkMeSDK.startItem(byID: id, deepLink: deepLink) }
+    static func dismissItem()                                           { WalkMeSDK.dismissItem() }
+    static func setUserId(_ userId: String)                             { WalkMeSDK.setUserId(userId) }
+    static func setVariable(key: String, value: Any)                    { WalkMeSDK.setVariable(key: key, value: value) }
+    static func setEventUserVars(_ vars: [String: String])              { WalkMeSDK.setEventUserVars(vars) }
+    static func setLanguage(_ language: String)                         { WalkMeSDK.setLanguage(language) }
+    static func sendEvent(name: String, attributes: [String: String]?)  { WalkMeSDK.sendEvent(name: name, attributes: attributes) }
+    static func setItemCallbacksDelegate(_ delegate: WMItemCallbacksDelegate?) { WalkMeSDK.setItemCallbacksDelegate(delegate) }
+    static func setAnalyticsHandler(_ handler: ((WMPublicAnalyticsDataInfo) -> Void)?) { WalkMeSDK.setAnalyticsHandler(handler) }
 }

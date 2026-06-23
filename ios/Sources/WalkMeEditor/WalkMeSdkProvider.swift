@@ -1,3 +1,4 @@
+import WalkMe
 import WalkMeEditor
 
 /// Bridges `SdkProvider` calls to the `WalkMePowerMode` entry point.
@@ -16,19 +17,15 @@ enum SdkProvider {
         WalkMePowerMode.start(options: options)
     }
 
-    static func stop()                                              { WalkMePowerMode.stop() }
-
-    // WalkMePowerMode exposes no "start item by ID" / "dismiss item" entry point.
-    // Kept as logged no-ops so the JS API surface stays stable across flavors.
-    static func startItem(byID id: Int, deepLink: String?) {
-        print("[WalkMeSdk] startItemByID is not supported by this SDK version (id: \(id))")
-    }
-    static func dismissItem() {
-        print("[WalkMeSdk] dismissItem is not supported by this SDK version")
-    }
-    static func setUserId(_ userId: String)                         { WalkMePowerMode.setUserId(userId) }
-    static func setVariable(key: String, value: Any)                { WalkMePowerMode.setVariable(key: key, value: value) }
-    static func setEventUserVars(_ vars: [String: String])          { WalkMePowerMode.setEventUserVars(vars) }
-    static func setLanguage(_ language: String)                     { WalkMePowerMode.setLanguage(language) }
-    static func sendEvent(name: String, attributes: [String: String]?) { WalkMePowerMode.sendEvent(name: name, attributes: attributes) }
+    static func stop()                                                  { WalkMePowerMode.stop() }
+    static func restart()                                               { WalkMePowerMode.restart() }
+    static func startItem(byID id: Int, deepLink: String?)              { WalkMePowerMode.startItem(byID: id, deepLink: deepLink) }
+    static func dismissItem()                                           { WalkMePowerMode.dismissItem() }
+    static func setUserId(_ userId: String)                             { WalkMePowerMode.setUserId(userId) }
+    static func setVariable(key: String, value: Any)                    { WalkMePowerMode.setVariable(key: key, value: value) }
+    static func setEventUserVars(_ vars: [String: String])              { WalkMePowerMode.setEventUserVars(vars) }
+    static func setLanguage(_ language: String)                         { WalkMePowerMode.setLanguage(language) }
+    static func sendEvent(name: String, attributes: [String: String]?)  { WalkMePowerMode.sendEvent(name: name, attributes: attributes) }
+    static func setItemCallbacksDelegate(_ delegate: WMItemCallbacksDelegate?) { WalkMePowerMode.setItemCallbacksDelegate(delegate) }
+    static func setAnalyticsHandler(_ handler: ((WMPublicAnalyticsDataInfo) -> Void)?) { WalkMePowerMode.setAnalyticsHandler(handler) }
 }

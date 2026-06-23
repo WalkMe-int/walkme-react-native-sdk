@@ -1,7 +1,14 @@
 import Foundation
+import React
+import WalkMe
+import WalkMeEditor
 
 @objc(RNWalkMeSdk)
-class RNWalkMeSdkModule: NSObject {
+class RNWalkMeSdkModule: RCTEventEmitter, WMItemCallbacksDelegate {
+
+    override func supportedEvents() -> [String]! {
+        return ["walkme_item_presented", "walkme_item_dismissed", "walkme_analytics_event"]
+    }
 
     @objc func start(_ options: NSDictionary) {
         DispatchQueue.main.async {
@@ -9,17 +16,14 @@ class RNWalkMeSdkModule: NSObject {
         }
     }
 
-    @objc func stop() {
-        SdkProvider.stop()
-    }
+    @objc func stop() { SdkProvider.stop() }
+    @objc func restart() { SdkProvider.restart() }
 
     @objc func startItemByID(_ itemId: NSNumber, deepLink: String?) {
         SdkProvider.startItem(byID: itemId.intValue, deepLink: deepLink)
     }
 
-    @objc func dismissItem() {
-        SdkProvider.dismissItem()
-    }
+    @objc func dismissItem() { SdkProvider.dismissItem() }
 
     @objc func setUserId(_ userId: String?) {
         SdkProvider.setUserId(userId ?? "")
@@ -41,5 +45,80 @@ class RNWalkMeSdkModule: NSObject {
     @objc func sendEvent(_ name: String, attributes: NSDictionary?) {
         let stringAttrs = (attributes as? [String: Any])?.compactMapValues { $0 as? String }
         SdkProvider.sendEvent(name: name, attributes: stringAttrs)
+    }
+
+    @objc func setItemInfoListener(_ enable: Bool) {
+        SdkProvider.setItemCallbacksDelegate(enable ? self : nil)
+    }
+
+    @objc func setAnalyticsListener(_ enable: Bool) {
+        if enable {
+            SdkProvider.setAnalyticsHandler { [weak self] info in
+                self?.sendEvent(withName: "walkme_analytics_event", body: [
+                    "eventName": info.eventType.name,
+                    "params": info.payloadString,
+                ])
+            }
+        } else {
+            SdkProvider.setAnalyticsHandler(nil)
+        }
+    }
+
+    // MARK: – WMItemCallbacksDelegate
+
+    func itemWillShow(_ itemInfo: WalkMeItemInfo) {
+        sendEvent(withName: "walkme_item_presented", body: itemInfoBody(itemInfo))
+    }
+
+    func itemDidDismiss(_ itemInfo: WalkMeItemInfo) {
+        sendEvent(withName: "walkme_item_dismissed", body: itemInfoBody(itemInfo))
+    }
+
+    private func itemInfoBody(_ info: WalkMeItemInfo) -> [String: Any] {
+        var body: [String: Any] = [
+            "itemId": info.itemId,
+            "itemType": info.itemType,
+            "userData": [
+                "userId":      info.userData.userId,
+                "osVersion":   info.userData.osVersion,
+                "appVersion":  info.userData.appVersion,
+                "appName":     info.userData.appName,
+                "bundleId":    info.userData.bundleId,
+                "network":     info.userData.network,
+                "timezone":    info.userData.timezone,
+                "deviceModel": info.userData.deviceModel,
+                "locale":      info.userData.locale,
+                "countryCode": info.userData.countryCode,
+            ],
+        ]
+        if let action = info.action { body["action"] = action }
+        return body
+    }
+}
+
+// MARK: – WMPublicAnalyticsDataInfo helpers
+
+private extension WMPublicEventType {
+    var name: String {
+        switch self {
+        case .play:           return "play"
+        case .click:          return "click"
+        case .close:          return "close"
+        case .sessionStarted: return "sessionStarted"
+        case .engagedElement: return "engagedElement"
+        case .changeLanguage: return "changeLanguage"
+        case .activity:       return "activity"
+        case .pageChange:     return "pageChange"
+        case .na:             return "na"
+        @unknown default:     return "na"
+        }
+    }
+}
+
+private extension WMPublicAnalyticsDataInfo {
+    var payloadString: String {
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+              let str  = String(data: data, encoding: .utf8) else { return "{}" }
+        return str
     }
 }

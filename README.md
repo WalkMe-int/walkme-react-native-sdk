@@ -70,8 +70,8 @@ In your root `android/build.gradle`:
 
 ```gradle
 ext {
-    walkmeVersion       = '1.2.3'  // for WalkMe flavor
-    walkmeEditorVersion = '1.2.3'  // for WalkMeEditor flavor
+    walkmeVersion       = '1.1.0'  // for WalkMe flavor
+    walkmeEditorVersion = '1.1.0'  // for WalkMeEditor flavor
 }
 ```
 
@@ -170,6 +170,7 @@ Replace `YOUR_SYSTEM_GUID` with the GUID from your WalkMe console. All other `st
 
 ```js
 WalkMeSDK.stop();
+WalkMeSDK.restart();
 WalkMeSDK.setUserId('user-123');
 WalkMeSDK.setVariable('plan', 'premium');
 WalkMeSDK.setEventUserVars({ name: 'John Doe', role: 'admin' });
@@ -177,6 +178,34 @@ WalkMeSDK.setLanguage('en');
 WalkMeSDK.sendEvent('button_clicked', { screen: 'home' });
 WalkMeSDK.startItemByID(42, null);
 WalkMeSDK.dismissItem();
+```
+
+### Item-info listener
+
+Register callbacks for item lifecycle events. Pass `null` to clear.
+
+```js
+WalkMeSDK.setItemInfoListener({
+  onItemPresented: (info) => console.log('Item shown:', info.itemId),
+  onItemDismissed: (info) => console.log('Item dismissed:', info.itemId),
+  onItemAction:    (info) => console.log('Item action:', info.itemActionType, info.args), // Android only
+});
+
+// Clear when no longer needed
+WalkMeSDK.setItemInfoListener(null);
+```
+
+### Analytics listener
+
+Register a callback for analytics events posted by the SDK. Pass `null` to clear.
+
+```js
+WalkMeSDK.setAnalyticsListener((event) => {
+  console.log('Analytics event:', event.eventName, event.params);
+});
+
+// Clear when no longer needed
+WalkMeSDK.setAnalyticsListener(null);
 ```
 
 ---
@@ -187,6 +216,7 @@ WalkMeSDK.dismissItem();
 |---|---|---|
 | `start(options)` | `WalkMeStartOptions` | Start the SDK |
 | `stop()` | — | Stop the SDK |
+| `restart()` | — | Restart the SDK with the same options |
 | `startItemByID(itemId, deepLink?)` | `number`, `string?` | Launch a specific item |
 | `dismissItem()` | — | Dismiss the active item |
 | `setUserId(userId)` | `string \| null` | Set the end-user ID |
@@ -194,6 +224,8 @@ WalkMeSDK.dismissItem();
 | `setEventUserVars(vars)` | `WalkMeEventUserVars` | Set event user attributes |
 | `setLanguage(language)` | `string` | Set the display language |
 | `sendEvent(name, attributes?)` | `string`, `object?` | Send a custom event |
+| `setItemInfoListener(listener)` | `WMItemInfoListener \| null` | Register or clear item lifecycle callbacks |
+| `setAnalyticsListener(listener)` | `function \| null` | Register or clear analytics event callback |
 
 ### `WalkMeStartOptions`
 
@@ -204,6 +236,32 @@ WalkMeSDK.dismissItem();
 | `dataCenter` | `string` | | `'prod'` |
 | `analyticsEnabled` | `boolean` | | `true` |
 | `localLogsEnabled` | `boolean` | | `false` |
+
+### `WMItemInfoListener`
+
+| Callback | Payload | Platform |
+|---|---|---|
+| `onItemPresented(info)` | `WMItemInfo` | Android + iOS |
+| `onItemDismissed(info)` | `WMItemInfo` | Android + iOS |
+| `onItemAction(info)` | `WMItemInfo` (with `args` map) | Android only |
+
+### `WMItemInfo`
+
+| Field | Type | Platform |
+|---|---|---|
+| `itemId` | `string` (Android) / `number` (iOS) | Both |
+| `itemActionType` | `string?` | Android |
+| `itemType` | `string?` | iOS |
+| `action` | `string?` | iOS |
+| `args` | `Record<string, string>?` | Android (`onItemAction` only) |
+| `userData` | `WMUserData` | Both |
+
+### `WMAnalyticsEvent`
+
+| Field | Type | Description |
+|---|---|---|
+| `eventName` | `string` | Event type, e.g. `"play"`, `"click"`, `"activity"` |
+| `params` | `string` | Full event payload as a JSON string |
 
 ---
 

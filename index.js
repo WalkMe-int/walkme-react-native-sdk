@@ -1,4 +1,4 @@
-import { NativeModules } from 'react-native';
+import { NativeModules, NativeEventEmitter } from 'react-native';
 
 const { RNWalkMeSdk } = NativeModules;
 
@@ -8,6 +8,13 @@ if (!RNWalkMeSdk) {
       'Make sure you have linked the library and rebuilt the app.',
   );
 }
+
+const emitter = RNWalkMeSdk ? new NativeEventEmitter(RNWalkMeSdk) : null;
+
+// Subscriptions managed internally so the customer gets the same
+// set/clear API as the native SDK.
+let _itemInfoSubs = [];
+let _analyticsSub = null;
 
 const WalkMeSDK = {
   /**
@@ -27,55 +34,108 @@ const WalkMeSDK = {
     RNWalkMeSdk.stop();
   },
 
+  restart() {
+    RNWalkMeSdk.restart();
+  },
+
   /**
    * Start a specific item by its numeric ID.
    * @param {number} itemId
-   * @param {string} [deepLink] - optional deep-link to open first
+   * @param {string} [deepLink]
    */
   startItemByID(itemId, deepLink) {
     RNWalkMeSdk.startItemByID(itemId, deepLink ?? null);
   },
 
-  /**
-   * Set the current user ID. Pass null to clear.
-   * @param {string|null} userId
-   */
+  dismissItem() {
+    RNWalkMeSdk.dismissItem();
+  },
+
+  /** @param {string|null} userId */
   setUserId(userId) {
     RNWalkMeSdk.setUserId(userId ?? null);
   },
 
-  /**
-   * Set a custom segmentation variable. Pass null as value to clear.
-   * @param {string}      key
-   * @param {string|null} value
-   */
+  /** @param {string} key  @param {string|null} value */
   setVariable(key, value) {
     RNWalkMeSdk.setVariable(key, value ?? null);
   },
 
-  /**
-   * Set well-known event user vars.
-   * @param {{ name?: string, role?: string, type?: string, status?: string, info?: string }} vars
-   */
+  /** @param {{ name?, role?, type?, status?, info? }} vars */
   setEventUserVars(vars) {
     RNWalkMeSdk.setEventUserVars(vars);
   },
 
-  /**
-   * Set the display language for WalkMe content.
-   * @param {string} language
-   */
+  /** @param {string} language */
   setLanguage(language) {
     RNWalkMeSdk.setLanguage(language);
   },
 
   /**
-   * Send a custom event to WalkMe.
    * @param {string} name
-   * @param {object} [attributes] - optional key-value event attributes
+   * @param {object} [attributes]
    */
   sendEvent(name, attributes) {
     RNWalkMeSdk.sendEvent(name, attributes ?? null);
+  },
+
+  /**
+   * Register or clear the item-info listener.
+   *
+   * Pass an object with optional callbacks to enable; pass `null` to clear.
+   *
+   * @param {{ onItemPresented?, onItemDismissed?, onItemAction? } | null} listener
+   */
+  setItemInfoListener(listener) {
+    if (!RNWalkMeSdk) return;
+
+    // Remove any previous subscriptions
+    _itemInfoSubs.forEach(s => s.remove());
+    _itemInfoSubs = [];
+
+    const hasCallback = listener && (
+      listener.onItemPresented || listener.onItemDismissed || listener.onItemAction
+    );
+
+    if (!hasCallback) {
+      RNWalkMeSdk.setItemInfoListener(false);
+      return;
+    }
+
+    RNWalkMeSdk.setItemInfoListener(true);
+    if (listener.onItemPresented) {
+      _itemInfoSubs.push(emitter.addListener('walkme_item_presented', listener.onItemPresented));
+    }
+    if (listener.onItemDismissed) {
+      _itemInfoSubs.push(emitter.addListener('walkme_item_dismissed', listener.onItemDismissed));
+    }
+    if (listener.onItemAction) {
+      _itemInfoSubs.push(emitter.addListener('walkme_item_action', listener.onItemAction));
+    }
+  },
+
+  /**
+   * Register or clear the analytics listener.
+   *
+   * Pass a callback to enable; pass `null` to clear.
+   *
+   * @param {((event: { eventName: string, params: string }) => void) | null} listener
+   */
+  setAnalyticsListener(listener) {
+    if (!RNWalkMeSdk) return;
+
+    if (_analyticsSub) {
+      _analyticsSub.remove();
+      _analyticsSub = null;
+    }
+
+    if (!listener) {
+      RNWalkMeSdk.setAnalyticsListener(false);
+      return;
+    }
+
+    RNWalkMeSdk.setAnalyticsListener(true);
+    _analyticsSub = emitter.addListener('walkme_analytics_event', listener);
   },
 };
 
