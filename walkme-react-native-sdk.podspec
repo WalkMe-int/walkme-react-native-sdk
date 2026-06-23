@@ -46,7 +46,7 @@ flavor =
 # minor/major) at `pod install` time. When SET it pins that exact version.
 # Either way the host is responsible for choosing a version the bridge's code
 # supports. Applied identically to both flavors.
-walkme_sdk_min_version = "1.0.0"
+walkme_sdk_min_version = "1.1.0"
 walkme_sdk_version =
   ENV["WALKME_SDK_VERSION"] ||
   app_pkg.dig("walkme", "sdkVersion")
