@@ -4,7 +4,7 @@ const { RNWalkMeSdk } = NativeModules;
 
 if (!RNWalkMeSdk) {
   console.warn(
-    '[@walkme/react-native-sdk] Native module not found. ' +
+    '[@walkme-mobile/react-native-sdk] Native module not found. ' +
       'Make sure you have linked the library and rebuilt the app.',
   );
 }

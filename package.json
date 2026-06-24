@@ -1,5 +1,5 @@
 {
-  "name": "@walkme/react-native-sdk",
+  "name": "@walkme-mobile/react-native-sdk",
   "version": "1.0.0",
   "description": "React Native bridge for the WalkMe SDK",
   "main": "index.js",

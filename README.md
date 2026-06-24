@@ -1,4 +1,4 @@
-# @walkme/react-native-sdk
+# @walkme-mobile/react-native-sdk
 
 React Native bridge for the WalkMe and WalkMe Power Mode (WalkMeEditor) SDKs on **Android** and **iOS**.
 
@@ -21,7 +21,7 @@ React Native bridge for the WalkMe and WalkMe Power Mode (WalkMeEditor) SDKs on 
 ## Installation
 
 ```sh
-npm install @walkme/react-native-sdk
+npm install @walkme-mobile/react-native-sdk
 ```
 
 The bridge is autolinked — no manual native registration needed.
@@ -35,7 +35,7 @@ Add a `walkme` block to your app's `package.json`. Both platforms read this at b
 ```json
 {
   "dependencies": {
-    "@walkme/react-native-sdk": "..."
+    "@walkme-mobile/react-native-sdk": "..."
   },
   "walkme": {
     "walkmeMode": "WalkMe"
@@ -59,7 +59,7 @@ The value is case-insensitive. An unrecognized value fails the build with a clea
 Add one line at the top of your app's `build.gradle`:
 
 ```gradle
-apply from: "../../node_modules/@walkme/react-native-sdk/android/walkme.gradle"
+apply from: "../../node_modules/@walkme-mobile/react-native-sdk/android/walkme.gradle"
 ```
 
 The script reads `walkmeMode` from `package.json`, wires up the correct flavor, and adds the JitPack repository — no manual repo config or `missingDimensionStrategy` needed.
@@ -93,7 +93,7 @@ Three additions, alongside what RN's template already generates:
 # (a) Load the bridge CocoaPods helpers
 require Pod::Executable.execute_command('node', ['-p',
   'require.resolve(
-    "@walkme/react-native-sdk/scripts/walkme_podfile.rb",
+    "@walkme-mobile/react-native-sdk/scripts/walkme_podfile.rb",
     {paths: [process.argv[1]]},
   )', __dir__]).strip
 
@@ -157,7 +157,7 @@ In your root component (e.g. `App.tsx`), call `start` once on mount:
 
 ```js
 import { useEffect } from 'react';
-import WalkMeSDK from '@walkme/react-native-sdk';
+import WalkMeSDK from '@walkme-mobile/react-native-sdk';
 
 useEffect(() => {
   WalkMeSDK.start({ systemGuid: 'YOUR_SYSTEM_GUID' });

@@ -1,4 +1,4 @@
-# walkme_podfile.rb — CocoaPods post_install helpers for @walkme/react-native-sdk.
+# walkme_podfile.rb — CocoaPods post_install helpers for @walkme-mobile/react-native-sdk.
 #
 # The WalkMe iOS SDK is SPM-only and pulled in via `spm_dependency`, which leaves
 # two integration gaps that can only be fixed from the consuming app's Podfile
@@ -9,7 +9,7 @@
 # Usage in the app Podfile:
 #
 #   require Pod::Executable.execute_command('node', ['-p',
-#     'require.resolve("@walkme/react-native-sdk/scripts/walkme_podfile.rb", {paths: [process.argv[1]]})',
+#     'require.resolve("@walkme-mobile/react-native-sdk/scripts/walkme_podfile.rb", {paths: [process.argv[1]]})',
 #     __dir__]).strip
 #
 #   post_install do |installer|
