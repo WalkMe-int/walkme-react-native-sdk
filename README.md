@@ -278,4 +278,4 @@ WalkMeSDK.setAnalyticsListener(null);
 
 ## License
 
-UNLICENSED
+Commercial
