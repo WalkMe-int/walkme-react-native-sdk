@@ -11,7 +11,7 @@
     "ios",
     "sdk"
   ],
-  "license": "UNLICENSED",
+  "license": "Commercial",
   "files": [
     "index.js",
     "index.d.ts",
