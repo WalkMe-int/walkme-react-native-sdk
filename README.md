@@ -236,6 +236,7 @@ WalkMeSDK.setAnalyticsListener(null);
 | `dataCenter` | `string` | | `'prod'` |
 | `analyticsEnabled` | `boolean` | | `true` |
 | `localLogsEnabled` | `boolean` | | `false` |
+| `uiManagerEnabled` | `boolean` | | `false` — Android only. Listen to React Native view-hierarchy changes so WalkMe detects screen transitions without a native Activity change (e.g. stack navigation). Requires the legacy (Paper) architecture; has no effect in apps running the New Architecture (Fabric) |
 
 ### `WMItemInfoListener`
 

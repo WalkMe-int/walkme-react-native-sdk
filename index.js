@@ -25,6 +25,11 @@ const WalkMeSDK = {
    * @param {string}  [options.dataCenter]       - "prod" | "eu" | "us01" | "eu01" | custom (default "prod")
    * @param {boolean} [options.analyticsEnabled] - default true
    * @param {boolean} [options.localLogsEnabled] - default false
+   * @param {boolean} [options.uiManagerEnabled] - Android only, default false.
+   *   Listen to React Native view-hierarchy changes so WalkMe detects screen
+   *   transitions that happen without a native Activity change (e.g. stack navigation).
+   *   Requires the legacy (Paper) architecture; has no effect in apps running
+   *   the New Architecture (Fabric).
    */
   start(options) {
     RNWalkMeSdk.start(options);

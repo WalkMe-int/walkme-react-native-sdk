@@ -1,6 +1,7 @@
 package com.walkme.rn
 
 import android.app.Application
+import android.util.Log
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.walkme.api.WalkMeEventUserVarsKey
@@ -14,6 +15,8 @@ class RNWalkMeSdkModule(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
 
     override fun getName(): String = "RNWalkMeSdk"
+
+    private var uiObserver: RNWalkMeSdkUiObserver? = null
 
     private fun emitEvent(name: String, body: WritableMap) {
         reactApplicationContext
@@ -83,12 +86,29 @@ class RNWalkMeSdkModule(reactContext: ReactApplicationContext) :
             if (options.hasKey("localLogsEnabled")) localLogsEnabled = options.getBoolean("localLogsEnabled")
         }
 
+        // Listen to React Native view-hierarchy changes; relevant e.g. for stack navigation,
+        // where screens change without a native Activity change.
+        if (options.hasKey("uiManagerEnabled") && options.getBoolean("uiManagerEnabled")) {
+            try {
+                val observer = RNWalkMeSdkUiObserver(reactApplicationContext)
+                observer.startObserving()
+                // TODO(WalkMe API): confirm the setter name on WalkMeStartOptions.
+                // Legacy SDK: options.setExternalUiListener(listener)
+                startOptions.setExternalUiListener(observer)
+                uiObserver = observer
+            } catch (e: Exception) {
+                Log.e("WalkMeSDK", "failed to start observing UI manager: ${e.message}")
+            }
+        }
+
         val application = reactApplicationContext.applicationContext as Application
         startSdk(startOptions, reactApplicationContext.currentActivity, application)
     }
 
     @ReactMethod
     fun stop() {
+        uiObserver?.stopObserving()
+        uiObserver = null
         sdkInstance.stop()
     }
 

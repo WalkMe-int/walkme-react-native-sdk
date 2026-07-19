@@ -14,6 +14,15 @@ export interface WalkMeStartOptions {
   analyticsEnabled?: boolean;
   /** Whether local (device) logs are enabled. Defaults to `false`. */
   localLogsEnabled?: boolean;
+  /**
+   * Android only. When `true`, the SDK listens to React Native view-hierarchy
+   * changes so it detects screen transitions that happen without a native
+   * Activity change (e.g. stack navigation). Defaults to `false`.
+   *
+   * Requires the legacy (Paper) architecture; has no effect in apps running
+   * the New Architecture (Fabric).
+   */
+  uiManagerEnabled?: boolean;
 }
 
 /** Well-known keys for `setEventUserVars`. */
