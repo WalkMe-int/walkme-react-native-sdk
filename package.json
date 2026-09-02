@@ -1,6 +1,6 @@
 {
   "name": "@walkme-mobile/react-native-sdk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "React Native bridge for the WalkMe SDK",
   "main": "index.js",
   "types": "index.d.ts",
