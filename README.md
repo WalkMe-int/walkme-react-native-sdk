@@ -81,13 +81,13 @@ If omitted, the latest published version is used.
 
 ## iOS Setup
 
-> **Requires React Native ≥ 0.75.** The WalkMe iOS SDK ships only via Swift Package Manager, and the bridge pulls it in using RN's `spm_dependency` helper (added in RN 0.75). `spm_dependency` requires **dynamic frameworks**.
+> **Requires React Native ≥ 0.75.** The WalkMe iOS SDK ships only via Swift Package Manager, and the bridge pulls it in using RN's `spm_dependency` helper (added in RN 0.75).
 
 The bridge pulls the correct WalkMe SPM package **and** the matching Lottie dependency, and ships the required CocoaPods `post_install` logic as a helper. You do **not** install `lottie-react-native`, set any environment variable, or copy any embedding script.
 
 ### 1. Wire up the `ios/Podfile`
 
-Three additions, alongside what RN's template already generates:
+Two additions, alongside what RN's template already generates:
 
 ```ruby
 # (a) Load the bridge CocoaPods helpers
@@ -97,9 +97,6 @@ require Pod::Executable.execute_command('node', ['-p',
     {paths: [process.argv[1]]},
   )', __dir__]).strip
 
-# (b) Required by spm_dependency
-use_frameworks! :linkage => :dynamic
-
 target 'YourApp' do
   config = use_native_modules!
   use_react_native!(:path => config[:reactNativePath])
@@ -107,7 +104,7 @@ target 'YourApp' do
   post_install do |installer|
     react_native_post_install(installer, config[:reactNativePath], :mac_catalyst_enabled => false)
 
-    # (c) Lottie ABI fix + WalkMe SPM framework embed
+    # (b) Embed the WalkMe + Lottie SPM frameworks into the app bundle
     walkme_post_install(installer)
   end
 end
@@ -131,19 +128,17 @@ To switch flavors, edit `walkme.walkmeMode` in `package.json` and re-run `pod in
 
 ## How the iOS integration scripts work
 
-The bridge ships **`scripts/walkme_podfile.rb`** inside the npm package and exposes one public function — `walkme_post_install(installer)` — that you call from your Podfile's `post_install`. It performs two fixes that **CocoaPods cannot do from a podspec alone** (a podspec can only configure its *own* pod target, not another pod or the app bundle). Keeping the logic in the bridge means it's version-locked to the SDK and never copy/pasted.
+The bridge ships **`scripts/walkme_podfile.rb`** inside the npm package and exposes one public function — `walkme_post_install(installer)` — that you call from your Podfile's `post_install`. It performs the one fix that **CocoaPods cannot do from a podspec alone** (a podspec can only configure its *own* pod target, not the app bundle). Keeping the logic in the bridge means it's version-locked to the SDK and never copy/pasted.
 
-### `walkme_fix_lottie_abi(installer)` — Lottie ABI
+### `walkme_embed_spm_frameworks(installer)` — embed the SPM frameworks
 
-Sets `BUILD_LIBRARY_FOR_DISTRIBUTION = YES` on the `lottie-ios` pod. The prebuilt WalkMe frameworks are compiled against a **library-evolution (resilient)** build of Lottie, so they link Lottie's resilient symbols (e.g. `LottieLoopMode.loop`). The `lottie-ios` pod builds from source *without* library evolution, so those symbols would be missing and the app crashes at launch with `dyld: Symbol not found: …LottieLoopMode.loop` — even though `Lottie.framework` is embedded. Building Lottie with library evolution produces the matching ABI.
-
-### `walkme_embed_spm_frameworks(installer)` — embed the WalkMe framework
-
-Rsyncs and codesigns the WalkMe SPM framework into the app bundle. `spm_dependency` links the framework to the Pods target but never embeds it in the app. On a **physical device** dyld only searches the app bundle, so without this the app aborts at launch with `dyld: Library not loaded: @rpath/WalkMeEditor.framework`. **Required for device/release builds.** (The simulator can load the framework from the build folder, so it happens to run without embedding — a device cannot.) The build phase is found-or-created by name, so re-running `pod install` never duplicates it.
+Rsyncs and codesigns `WalkMe*.framework` and `Lottie.framework` into the app bundle. `spm_dependency` links them to the Pods target but never embeds them in the app, so without this the app aborts at launch with `dyld: Library not loaded: @rpath/WalkMeEditor.framework` or `…/Lottie.framework/Lottie`. The build phase is found-or-created by name, so re-running `pod install` never duplicates it.
 
 ### Why Lottie comes from the bridge
 
-The podspec declares `lottie-ios`, **pinned to the exact version the WalkMe frameworks were built against**, so a single standalone Lottie pod is shared. If your app *also* uses Lottie (e.g. via `lottie-react-native`), pin it to that same version so CocoaPods resolves one `Lottie.framework`; mismatched versions error rather than ship two copies.
+Both WalkMe SDK flavors hard-link `@rpath/Lottie.framework/Lottie` at runtime but do **not** declare Lottie themselves — their `Package.swift` expects the host to provide it — and their `.swiftinterface` contains `import Lottie`, so the module must be on the bridge's search path to compile too.
+
+The bridge supplies it via [`lottie-spm`](https://github.com/airbnb/lottie-spm), Airbnb's official SPM distribution of the **prebuilt dynamic `Lottie.xcframework`**. Because it's a shared SPM package, SPM unifies it with a host app that also uses `lottie-spm`. This replaced an earlier `lottie-ios` **pod** dependency, which was the *sole* reason the bridge used to require `use_frameworks! :linkage => :dynamic` — that pod only produces a dynamic `Lottie.framework` under dynamic linkage, and being built from source it also needed a `BUILD_LIBRARY_FOR_DISTRIBUTION=YES` patch to match the prebuilt WalkMe frameworks' resilient ABI. The prebuilt xcframework needs neither.
 
 > The only thing CocoaPods won't let the bridge do automatically is inject the `post_install` call itself (that would require a CocoaPods plugin). Hence the single `walkme_post_install(installer)` line in your Podfile.
 
@@ -270,9 +265,8 @@ WalkMeSDK.setAnalyticsListener(null);
 | Symptom | Cause | Fix |
 |---|---|---|
 | `pod install` fails: *Unknown walkmeMode "…"* | Typo in `walkme.walkmeMode` | Use exactly `WalkMe` or `WalkMeEditor` (any casing). |
-| Launch crash: `dyld: Symbol not found: …LottieLoopMode.loop` | Lottie ABI mismatch | Ensure `walkme_post_install(installer)` runs in your `post_install`. |
-| Launch crash on device: `dyld: Library not loaded: @rpath/WalkMe….framework` | Framework not embedded | Ensure `walkme_post_install(installer)` runs — it adds the embed phase. |
-| Module not found / link errors | Dynamic frameworks not enabled | Add `use_frameworks! :linkage => :dynamic` (step b above). |
+| Launch crash: `dyld: Library not loaded: @rpath/WalkMe….framework` or `@rpath/Lottie.framework/Lottie` | Framework not embedded | Ensure `walkme_post_install(installer)` runs — it adds the embed phase. |
+| `pod install` warns *“using swift package(s) … with static linking”* | RN's advisory SPM warning | Ignore it — verified working with static pods. You do **not** need `use_frameworks!`. |
 
 ---
 

@@ -78,7 +78,13 @@ Pod::Spec.new do |s|
   # The WalkMe iOS SDK is distributed ONLY via Swift Package Manager.
   # `spm_dependency` is what lets a CocoaPods-autolinked library consume an
   # SPM-only dependency — it requires React Native >= 0.75.0.
-  # NOTE: consumers must set `use_frameworks! :linkage => :dynamic` in their Podfile.
+  #
+  # NOTE: `spm_dependency` does NOT require `use_frameworks! :linkage => :dynamic`.
+  # RN's helper logs a warning under static linking, but it is only advisory —
+  # verified on device/simulator that with default (static) pods the Swift
+  # autolink record still resolves the SPM framework and the app links, launches
+  # and runs. Consumers may keep their existing pod linkage.
+  #
   # `spm_dependency` is defined as a top-level method in React Native's
   # `react_native_pods.rb` (RN >= 0.75), which makes it a *private* method on
   # Object. `respond_to?` therefore needs `include_private: true` to see it.
@@ -103,26 +109,31 @@ Pod::Spec.new do |s|
       )
     end
 
-    # BOTH WalkMe SDK flavors depend on Lottie at runtime but do NOT declare it
-    # (their Package.swift expects the host app to provide Lottie). We MUST declare
-    # it here for two reasons:
-    #   1. Build time: the WalkMe*.swiftinterface contains `import Lottie`, so the
-    #      `Lottie` module must be on this pod's search path to compile, otherwise:
-    #      "error: unable to resolve module dependency: 'Lottie'".
-    #   2. Runtime: the WalkMe framework hard-links `@rpath/Lottie.framework/Lottie`.
-    # The `lottie-ios` pod (module `Lottie`) under `use_frameworks! :linkage =>
-    # :dynamic` builds the correctly-named `Lottie.framework` AND is auto-embedded
-    # by CocoaPods. A loose constraint reuses whatever Lottie the app already has
-    # (e.g. via lottie-react-native) without conflict.
+    # BOTH WalkMe SDK flavors hard-link @rpath/Lottie.framework/Lottie at runtime
+    # but do NOT declare Lottie (their Package.swift expects the host app to
+    # provide it), and their .swiftinterface contains `import Lottie`, so the
+    # module must also be on this pod's search path to compile.
     #
-    # NOTE: the consuming app must build lottie-ios with library evolution
-    # (BUILD_LIBRARY_FOR_DISTRIBUTION=YES) so its ABI matches the prebuilt WalkMe
-    # frameworks, otherwise: dyld "Symbol not found: ...LottieLoopMode.loop" at
-    # launch. See README "iOS Setup".
-    # Pinned to the exact Lottie version the prebuilt WalkMe* frameworks were
-    # compiled against. The app no longer needs lottie-react-native; this brings
-    # Lottie in via the bridge. An app that uses Lottie itself must match 4.6.0.
-    s.dependency "lottie-ios", "4.6.0"
+    # `lottie-spm` is Airbnb's official SPM distribution of the PREBUILT *dynamic*
+    # `Lottie.xcframework` (framework and binary are both literally named
+    # `Lottie`), so it satisfies that load command exactly. Preferred over:
+    #   - the `lottie-ios` CocoaPods pod, which only yields a dynamic
+    #     `Lottie.framework` under `use_frameworks! :linkage => :dynamic`. That
+    #     single requirement is what forced dynamic frameworks app-wide on every
+    #     consumer. It also builds from source WITHOUT library evolution, so it
+    #     needed a `BUILD_LIBRARY_FOR_DISTRIBUTION=YES` post_install patch to
+    #     match the prebuilt WalkMe frameworks' resilient ABI.
+    #   - lottie-ios's own SPM products (`Lottie` is static; `Lottie-Dynamic`
+    #     produces the wrong framework name).
+    #   - a hand-rolled binaryTarget (pins one exact version + checksum and
+    #     cannot dedupe with a host app's own Lottie).
+    # As a shared SPM package it unifies with a host app that also uses
+    # lottie-spm. Same choice as the sibling walkme-capacitor plugin.
+    spm_dependency(s,
+      url: "https://github.com/airbnb/lottie-spm.git",
+      requirement: { kind: "upToNextMajorVersion", minimumVersion: "4.6.0" },
+      products: ["Lottie"]
+    )
   else
     raise "[walkme-react-native-sdk] React Native >= 0.75.0 is required: the SPM-only " \
           "WalkMe iOS SDK is integrated via the `spm_dependency` helper, which is unavailable " \
