@@ -7,6 +7,7 @@ React Native bridge for the WalkMe and WalkMe Power Mode (WalkMeEditor) SDKs on 
 ## Overview
 
 - One JavaScript API (`WalkMeSDK`) bridges to the native SDK on both platforms.
+- Works on the **Legacy Architecture**, the **New Architecture (TurboModules)** and **Bridgeless** mode — the same import, the same methods, the same events. Nothing in your JavaScript changes.
 - Two **flavors**: standard **WalkMe** and Power Mode **WalkMeEditor**. Pick the flavor once in `package.json` — no code changes needed.
 - The bridge pulls the correct native SDK automatically and, on iOS, supplies the required Lottie dependency.
 
@@ -14,7 +15,55 @@ React Native bridge for the WalkMe and WalkMe Power Mode (WalkMeEditor) SDKs on 
 |---|---|---|
 | Min OS | Android 7.0 (API 24) | iOS 14 |
 | Native SDK source | JitPack | Swift Package Manager |
-| Required RN version | any supported | **≥ 0.75** |
+| Required RN version | **≥ 0.75** | **≥ 0.75** |
+| Architectures | Legacy • New • Bridgeless | Legacy • New • Bridgeless |
+
+---
+
+## React Native Architecture Support
+
+The bridge supports the **Legacy Architecture**, the **New Architecture (TurboModules)** and **Bridgeless** mode from a single package. Nothing in your app has to declare which one you are on — the bridge detects it at build time and picks the matching native path.
+
+| | How the module is resolved | What is built |
+|---|---|---|
+| Legacy Architecture | `NativeModules.RNWalkMeSdk` (via `TurboModuleRegistry.get`, which falls back automatically) | Android: `src/oldarch` base class • iOS: plain `RCTEventEmitter` + `RCT_EXPORT_METHOD` |
+| New Architecture | TurboModule proxy | Android: Codegen `NativeWalkMeSdkSpec` • iOS: `NativeWalkMeSdkSpec` protocol + `NativeWalkMeSdkSpecJSI` |
+| Bridgeless | TurboModule proxy, no bridge | Same as New Architecture; events are emitted without touching `RCTBridge` / the legacy event dispatcher |
+
+There is **one** implementation of the WalkMe logic per platform. The architecture-specific code is only the thin base class / registration glue:
+
+```
+JS  →  TurboModuleRegistry.get('RNWalkMeSdk')
+       │
+       ├─ Android  RNWalkMeSdkModule (@ReactMethod)  →  WalkMeSdkBridge  →  WalkMe Android SDK
+       │            └ base class differs per arch (src/oldarch | src/newarch)
+       │
+       └─ iOS      RNWalkMeSdk.mm (RCT_EXPORT_METHOD) →  WMRNSdkProvider  →  WalkMe iOS SDK
+                    └ conforms to the generated spec only under RCT_NEW_ARCH_ENABLED
+```
+
+### How the architecture is detected
+
+| Platform | Signal | Fallback |
+|---|---|---|
+| Android | `newArchEnabled` (or `react.newArchEnabled`) in your `android/gradle.properties` | React Native ≥ 0.82, where the Legacy Architecture no longer exists, is treated as New Architecture |
+| iOS | `RCT_NEW_ARCH_ENABLED` — the flag React Native's own `install_modules_dependencies` sets during `pod install` | Whatever React Native defaults to for your version |
+
+You do not set anything WalkMe-specific for this. Flip `newArchEnabled` (Android) or `RCT_NEW_ARCH_ENABLED` (iOS) the way you would for any other library and rebuild.
+
+### Compatibility matrix
+
+Verified by building the example apps in this repository end-to-end — each installs the bridge through React Native's own autolinking, exactly as a consuming app does:
+
+| React Native | Architecture | Android | iOS |
+|---|---|---|---|
+| 0.85.3 | New (Bridgeless) | ✅ Debug + Release (R8) | ✅ Debug + Release |
+| 0.81.4 | Legacy | ✅ Debug + Release (R8) | ✅ Debug + Release |
+
+- **Minimum supported React Native: 0.75.** This is set by iOS, not by the architecture work: the WalkMe iOS SDK ships only via Swift Package Manager and the bridge integrates it with React Native's `spm_dependency` helper, which was added in RN 0.75. The minimum was **not** raised by this change.
+- React Native **0.82 and later removed the Legacy Architecture**; on those versions the bridge builds the New Architecture path only, which is the only thing that exists there.
+- Versions between 0.75 and 0.81 are expected to work on both architectures — the same code paths are used — but only the two rows above were actually built and are therefore the only ones claimed.
+- The RN 0.81 iOS builds need one **example-app** Podfile tweak that has nothing to do with this bridge: React Native ≤ 0.81 vendors fmt 11.0.2, which the Clang in Xcode 16.3+ rejects under C++20. See the Troubleshooting table.
 
 ---
 
@@ -110,7 +159,7 @@ target 'YourApp' do
 end
 ```
 
-> No `AppDelegate` changes are needed — `RCT_EXTERN_MODULE` auto-registers the native module.
+> No `AppDelegate` changes are needed on either architecture — the module registers itself through `RCT_EXPORT_MODULE()`, and CocoaPods autolinking wires it into the TurboModule provider when the New Architecture is on.
 
 ### 2. Install pods & run
 
@@ -267,6 +316,44 @@ WalkMeSDK.setAnalyticsListener(null);
 | `pod install` fails: *Unknown walkmeMode "…"* | Typo in `walkme.walkmeMode` | Use exactly `WalkMe` or `WalkMeEditor` (any casing). |
 | Launch crash: `dyld: Library not loaded: @rpath/WalkMe….framework` or `@rpath/Lottie.framework/Lottie` | Framework not embedded | Ensure `walkme_post_install(installer)` runs — it adds the embed phase. |
 | `pod install` warns *“using swift package(s) … with static linking”* | RN's advisory SPM warning | Ignore it — verified working with static pods. You do **not** need `use_frameworks!`. |
+| Build fails in `Pods/fmt/include/fmt/format-inl.h`: *call to consteval function … is not a constant expression* | React Native ≤ 0.81 vendors fmt 11.0.2, which Clang from Xcode 16.3+ rejects under C++20. Unrelated to this bridge — fmt fixed it in 11.1 and React Native picked it up in 0.82. | Build the `fmt` pod as C++17 from your Podfile's `post_install` (see `examples/legacy/ios/Podfile`), or use an older Xcode. |
+
+---
+
+## Upgrading
+
+If you are already using this bridge, **no JavaScript changes are required** — the public `WalkMeSDK` API, its method names, parameters, return values and the item-info / analytics callbacks are all unchanged. Rebuild and you are done.
+
+Two things are worth knowing:
+
+- **`android/walkme.gradle` now applies its flavor strategy lazily.** The documented placement (first line of `android/app/build.gradle`, before `apply plugin: "com.android.application"`) previously failed with `Could not find method android()`. The script now waits for the Android plugin to be applied, so it works at the top or the bottom of the file. No change on your side.
+- **iOS no longer needs a per-flavor source tree.** Flavor selection moved into a single Swift adapter behind a compile-time flag that the podspec sets from your `package.json`. If you had pinned anything to the old `ios/Sources/WalkMe*` paths, drop it — `pod install` handles this.
+
+Nothing about the `walkme.walkmeMode` configuration changed: same key, same values, same place, same build-time behavior on both platforms.
+
+---
+
+## Example apps
+
+Two runnable apps under `examples/` exercise every public API and both listeners, one per architecture:
+
+| App | React Native | Architecture | Flavor | Android package |
+|---|---|---|---|---|
+| [`examples/new-arch`](examples/new-arch) | 0.85.3 | New Architecture (bridgeless) | `WalkMeEditor` (Power Mode) | `com.walkmeexample` |
+| [`examples/legacy`](examples/legacy) | 0.81.4 | Legacy Architecture | `WalkMeEditor` (Power Mode) | `com.walkmeexamplelegacy` |
+
+Both share the same `App.tsx` — nothing in it is architecture-aware, which is the whole point. The app header prints which architecture the JS runtime actually resolved, so you can confirm the bridge is running where you expect.
+
+Each app depends on the bridge as `file:../..`, a link to this checkout, so it always runs the sources on your current branch:
+
+```sh
+cd examples/new-arch    # or examples/legacy
+npm install
+npm start               # Metro
+npm run android         # or: npm run ios
+```
+
+Building needs **Node ≥ 20.19.4** and `ANDROID_HOME`. APKs are standalone by default — the JS bundle is compiled into every variant and the app never contacts a dev server — so `./android/gradlew -p android assembleDebug` produces a file that runs on its own. See each app's README for the details.
 
 ---
 

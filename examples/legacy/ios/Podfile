@@ -1,0 +1,74 @@
+# This example app pins the LEGACY architecture so the bridge is exercised on
+# both React Native architectures. React Native reads this env var during
+# `pod install`; setting it here keeps the example reproducible without asking
+# anyone to remember a command-line flag.
+ENV['RCT_NEW_ARCH_ENABLED'] = '0'
+
+# Resolve react_native_pods.rb with node to allow for hoisting
+require Pod::Executable.execute_command('node', ['-p',
+  'require.resolve(
+    "react-native/scripts/react_native_pods.rb",
+    {paths: [process.argv[1]]},
+  )', __dir__]).strip
+
+
+# WalkMe bridge CocoaPods helpers (embeds the WalkMe + Lottie SPM frameworks).
+require Pod::Executable.execute_command('node', ['-p',
+  'require.resolve(
+    "@walkme-mobile/react-native-sdk/scripts/walkme_podfile.rb",
+    {paths: [process.argv[1]]},
+  )', __dir__]).strip
+
+platform :ios, min_ios_version_supported
+prepare_react_native_project!
+
+linkage = ENV['USE_FRAMEWORKS']
+if linkage != nil
+  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
+  use_frameworks! :linkage => linkage.to_sym
+end
+
+target 'WalkMeExampleLegacy' do
+  config = use_native_modules!
+
+  use_react_native!(
+    :path => config[:reactNativePath],
+    # An absolute path to your application root.
+    :app_path => "#{Pod::Config.instance.installation_root}/.."
+  )
+
+  post_install do |installer|
+    # https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/react_native_pods.rb#L197-L202
+    react_native_post_install(
+      installer,
+      config[:reactNativePath],
+      :mac_catalyst_enabled => false,
+      # :ccache_enabled => true
+    )
+
+    walkme_post_install(installer)
+
+    # ---------------------------------------------------------------------
+    # React Native 0.81 x Xcode 26 toolchain fix — NOT related to the WalkMe
+    # bridge.
+    #
+    # RN 0.81 (the last release that still ships the Legacy Architecture)
+    # vendors fmt 11.0.2. Under C++20 with the Clang in Xcode 16.3+, fmt's
+    # `FMT_STRING(...)` consteval constructor is rejected in `format-inl.h`
+    # ("call to consteval function ... is not a constant expression"). fmt
+    # fixed this in 11.1; React Native picked the fix up by bumping to fmt
+    # 11.2.0 in 0.82 — the release that also removed the Legacy Architecture,
+    # so there is no legacy-capable RN version with a fixed fmt.
+    #
+    # `FMT_CONSTEVAL` is only `consteval` when the compiler is in C++20 mode,
+    # so building the *fmt pod itself* as C++17 sidesteps it. Scoped to that
+    # one third-party target; every other pod, including the WalkMe bridge,
+    # keeps React Native's own C++20 setting.
+    installer.pods_project.targets.each do |target|
+      next unless target.name == 'fmt'
+      target.build_configurations.each do |config|
+        config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+      end
+    end
+  end
+end

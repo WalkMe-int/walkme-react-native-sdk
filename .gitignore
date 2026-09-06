@@ -8,3 +8,22 @@ Package.resolved
 project.yml
 CLAUDE.md
 /android/.gradle
+
+# React Native Codegen output (generated at build time, never committed)
+/build
+/codegen-output
+/android/.cxx
+/android/src/main/jni
+**/build/generated/source/codegen
+
+# Example apps
+/examples/*/node_modules
+/examples/*/android/build
+/examples/*/android/.gradle
+/examples/*/android/app/build
+/examples/*/ios/Pods
+/examples/*/ios/build
+/examples/*/ios/*.xcworkspace/xcuserdata
+/examples/*/ios/.xcode.env.local
+/examples/*/ios/Podfile.lock
+/examples/*/vendor

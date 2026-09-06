@@ -1,9 +1,79 @@
+import groovy.json.JsonSlurper
+
 def safeExtGet(prop, fallback) {
     rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
 }
 
+/**
+ * Locate the `react-native` package the host app is actually building against.
+ *
+ * Checked in order: this repository's own node_modules (when the library is
+ * built from source), the consuming app's node_modules (the usual case once the
+ * package has been installed) and the app's Gradle root.
+ */
+def resolveReactNativePackageJson() {
+    def candidates = [
+            file("$projectDir/../node_modules/react-native/package.json"),
+            file("$projectDir/../../react-native/package.json"),
+            file("$projectDir/../../../react-native/package.json"),
+            file("$rootDir/../node_modules/react-native/package.json"),
+            file("$rootDir/node_modules/react-native/package.json"),
+    ]
+    return candidates.find { it.exists() }
+}
+
+def reactNativeMinorVersion() {
+    def pkg = resolveReactNativePackageJson()
+    if (pkg == null) {
+        return null
+    }
+    def version = new JsonSlurper().parseText(pkg.text).version as String
+    def match = version =~ /^(\d+)\.(\d+)/
+    return match ? [major: match[0][1] as int, minor: match[0][2] as int] : null
+}
+
+/**
+ * Whether this variant must be compiled against the New Architecture.
+ *
+ * 1. An explicit `newArchEnabled` (or `react.newArchEnabled`) Gradle property
+ *    always wins — that is the switch app developers flip in
+ *    `android/gradle.properties`.
+ * 2. Otherwise fall back to the React Native version: the Legacy Architecture
+ *    was removed in React Native 0.82, so from there on there is nothing to
+ *    fall back to and the New Architecture is the only valid target.
+ * 3. If React Native cannot be located at all (e.g. a bare `:android` configure
+ *    with no node_modules), assume Legacy, which is the more conservative of
+ *    the two and matches this library's historical behavior.
+ */
+def isNewArchitectureEnabled() {
+    def property = null
+    if (project.hasProperty("newArchEnabled")) {
+        property = project.property("newArchEnabled")
+    } else if (project.hasProperty("react.newArchEnabled")) {
+        property = project.property("react.newArchEnabled")
+    }
+    if (property != null) {
+        return property.toString().trim().toLowerCase() == "true"
+    }
+
+    def rn = reactNativeMinorVersion()
+    if (rn == null) {
+        return false
+    }
+    return rn.major > 0 || rn.minor >= 82
+}
+
+def newArchEnabled = isNewArchitectureEnabled()
+logger.lifecycle("[WalkMe] React Native architecture: ${newArchEnabled ? 'New (TurboModules)' : 'Legacy'}")
+
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
+
+if (newArchEnabled) {
+    // Registers `generateCodegenSchemaFromJavaScript` + `generateCodegenArtifactsFromSchema`
+    // and adds `build/generated/source/codegen/java` to the main source set.
+    apply plugin: 'com.facebook.react'
+}
 
 android {
     namespace 'com.walkme.rn'
@@ -23,6 +93,18 @@ android {
         }
     }
 
+    sourceSets {
+        main {
+            // `RNWalkMeSdkModule` is shared; only its base class differs per
+            // architecture. See the two `RNWalkMeSdkSpec.kt` files.
+            if (newArchEnabled) {
+                java.srcDirs += ['src/newarch/java']
+            } else {
+                java.srcDirs += ['src/oldarch/java']
+            }
+        }
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -30,6 +112,17 @@ android {
 
     kotlinOptions {
         jvmTarget = '17'
+    }
+}
+
+if (newArchEnabled) {
+    react {
+        // These are also read from `codegenConfig` in the package's package.json,
+        // which takes precedence. They are repeated here so a Gradle-only
+        // consumer still gets the right artifacts.
+        jsRootDir = file("../src/")
+        libraryName = "WalkMeSdkSpec"
+        codegenJavaPackageName = "com.walkme.rn"
     }
 }
 

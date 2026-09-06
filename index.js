@@ -1,6 +1,20 @@
-import { NativeModules, NativeEventEmitter } from 'react-native';
+import { NativeEventEmitter, TurboModuleRegistry } from 'react-native';
 
-const { RNWalkMeSdk } = NativeModules;
+/**
+ * Resolve the native module in a way that works on every React Native
+ * architecture.
+ *
+ * `TurboModuleRegistry.get()` asks the TurboModule proxy first (New
+ * Architecture / Bridgeless) and transparently falls back to `NativeModules`
+ * (Legacy Architecture). It returns `null` — rather than throwing, the way
+ * `getEnforcing()` does — when the module is absent, which preserves this
+ * package's historical "warn once, then no-op on listener setters" behavior.
+ *
+ * The module name and its method signatures are declared once, for Codegen, in
+ * `src/NativeWalkMeSdk.ts`. That spec is what generates the TurboModule
+ * interfaces both native implementations conform to; keep the two in sync.
+ */
+const RNWalkMeSdk = TurboModuleRegistry.get('RNWalkMeSdk');
 
 if (!RNWalkMeSdk) {
   console.warn(
