@@ -128,11 +128,29 @@ To switch flavors, edit `walkme.walkmeMode` in `package.json` and re-run `pod in
 
 ## How the iOS integration scripts work
 
-The bridge ships **`scripts/walkme_podfile.rb`** inside the npm package and exposes one public function — `walkme_post_install(installer)` — that you call from your Podfile's `post_install`. It performs the one fix that **CocoaPods cannot do from a podspec alone** (a podspec can only configure its *own* pod target, not the app bundle). Keeping the logic in the bridge means it's version-locked to the SDK and never copy/pasted.
+The bridge ships **`scripts/walkme_podfile.rb`** inside the npm package and exposes one public function — `walkme_post_install(installer)` — that you call from your Podfile's `post_install`. It applies the fixes that **CocoaPods cannot do from a podspec alone** (a podspec can only configure its *own* pod target, not the app target or app bundle). Keeping the logic in the bridge means it's version-locked to the SDK and never copy/pasted.
 
 ### `walkme_embed_spm_frameworks(installer)` — embed the SPM frameworks
 
 Rsyncs and codesigns `WalkMe*.framework` and `Lottie.framework` into the app bundle. `spm_dependency` links them to the Pods target but never embeds them in the app, so without this the app aborts at launch with `dyld: Library not loaded: @rpath/WalkMeEditor.framework` or `…/Lottie.framework/Lottie`. The build phase is found-or-created by name, so re-running `pod install` never duplicates it.
+
+### `walkme_dedupe_xcframework_signatures(installer)` — make release archives work
+
+Keeps exactly one `*.xcframework-*.signature` file per WalkMe/Lottie framework in the build products directory. Without it, **Product → Archive** fails at the very end with:
+
+```
+"WalkMeEditor.xcframework-ios.signature" couldn't be copied to "Signatures"
+because an item with the same name already exists.   (NSCocoaErrorDomain 516)
+```
+
+The WalkMe SDK and is a SPM **binary targets** (prebuilt xcframeworks). Xcode plans one `SignatureCollection` task per *build directory* that consumes such an xcframework, and CocoaPods gives each pod target its own `CONFIGURATION_BUILD_DIR` inside the shared archive build-products path — so the same signature is written twice:
+
+```
+Release-iphoneos/WalkMeEditor.xcframework-ios.signature
+Release-iphoneos/walkme-react-native-sdk/WalkMeEditor.xcframework-ios.signature
+```
+
+The archive action then flattens every signature it finds into a single `<archive>/Signatures/` folder and trips over the duplicate. The build phase collapses the duplicate so the archive still records one signature per framework. Scoped to the `WalkMe`, `WalkMeEditor` and `Lottie` framework names, so your own xcframeworks' signatures are untouched.
 
 ### Why Lottie comes from the bridge
 
