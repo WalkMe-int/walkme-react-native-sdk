@@ -24,9 +24,19 @@ allprojects {
     }
 }
 
-android {
-    defaultConfig {
-        missingDimensionStrategy 'walkmeMode', walkmeMode
+// Deferred so this script can be applied ANYWHERE in the app's build.gradle —
+// including the very first line, as the README instructs. At that point
+// `com.android.application` has not been applied yet and the `android { }`
+// extension does not exist; `withId` runs the block the moment the plugin shows
+// up (immediately, if it is already applied), which is still early enough for
+// AGP to see the strategy.
+['com.android.application', 'com.android.library'].each { pluginId ->
+    project.plugins.withId(pluginId) {
+        android {
+            defaultConfig {
+                missingDimensionStrategy 'walkmeMode', walkmeMode
+            }
+        }
     }
 }
 

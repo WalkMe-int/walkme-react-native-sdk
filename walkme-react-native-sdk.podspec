@@ -69,11 +69,34 @@ Pod::Spec.new do |s|
   s.source          = { :git => "https://github.com/WalkMe-int/walkme-react-native-sdk.git", :tag => "#{s.version}" }
   s.swift_version   = "5.9"
 
-  # Only the selected flavor folder is compiled (shared bridge + module + flavor adapter).
-  s.source_files    = "ios/Sources/#{flavor}/**/*.{h,m,mm,swift}"
+  # One source tree for every combination of flavor and React Native
+  # architecture:
+  #   Module/ - the RN module itself (Objective-C++). Legacy NativeModule and
+  #             TurboModule in one class; `getTurboModule:` is C++, which is why
+  #             this half cannot be Swift.
+  #   Shared/ - the WalkMe adapter (Swift). Flavor selection happens inside it,
+  #             behind `#if WALKME_EDITOR`, so the module never sees a WalkMe type.
+  s.source_files    = "ios/Sources/Module/**/*.{h,m,mm,swift}",
+                      "ios/Sources/Shared/**/*.{h,m,mm,swift}"
 
-  # Pulls in React-Core (and New Architecture deps when enabled). Requires RN >= 0.71.
+  # Pulls in React-Core, and — when the app builds with the New Architecture —
+  # ReactCodegen (which is where `WalkMeSdkSpec/WalkMeSdkSpec.h` is generated
+  # from `src/NativeWalkMeSdk.ts`) plus the TurboModule libraries. It is also
+  # what defines `RCT_NEW_ARCH_ENABLED`, the flag `RNWalkMeSdk.mm` switches on.
+  # Requires RN >= 0.71.
   install_modules_dependencies(s)
+
+  # Power Mode selection for the Swift half. `install_modules_dependencies` has
+  # just populated OTHER_SWIFT_FLAGS with `-DRCT_NEW_ARCH_ENABLED`, so read the
+  # value back and append rather than overwrite it. (Pod::Specification has no
+  # getters; `to_hash` is the documented way to read an attribute, and is what
+  # React Native's own helper does.)
+  if flavor == "WalkMeEditor"
+    current_config = s.to_hash["pod_target_xcconfig"] || {}
+    current_swift_flags = current_config["OTHER_SWIFT_FLAGS"] || "$(inherited)"
+    current_config["OTHER_SWIFT_FLAGS"] = "#{current_swift_flags} -D WALKME_EDITOR"
+    s.pod_target_xcconfig = current_config
+  end
 
   # The WalkMe iOS SDK is distributed ONLY via Swift Package Manager.
   # `spm_dependency` is what lets a CocoaPods-autolinked library consume an

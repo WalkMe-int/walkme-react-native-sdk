@@ -17,14 +17,36 @@
     "index.d.ts",
     "react-native.config.js",
     "walkme-react-native-sdk.podspec",
+    "src/",
     "ios/",
     "android/",
-    "scripts/"
+    "scripts/",
+    "!android/build",
+    "!android/.gradle",
+    "!android/.cxx",
+    "!ios/build",
+    "!ios/.build",
+    "!**/*.tgz"
   ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "codegen": "node -e \"require('fs').mkdirSync('build/codegen',{recursive:true})\" && node ./node_modules/@react-native/codegen/lib/cli/combine/combine-js-to-schema-cli.js --platform all build/codegen/schema.json src && node ./node_modules/react-native/scripts/generate-specs-cli.js --platform android --schemaPath build/codegen/schema.json --outputDir build/codegen/android --libraryName WalkMeSdkSpec --javaPackageName com.walkme.rn --libraryType modules && node ./node_modules/react-native/scripts/generate-specs-cli.js --platform ios --schemaPath build/codegen/schema.json --outputDir build/codegen/ios --libraryName WalkMeSdkSpec --libraryType modules"
+  },
+  "codegenConfig": {
+    "name": "WalkMeSdkSpec",
+    "type": "modules",
+    "jsSrcsDir": "src",
+    "android": {
+      "javaPackageName": "com.walkme.rn"
+    }
+  },
   "peerDependencies": {
     "react-native": ">=0.75.0"
   },
   "devDependencies": {
-    "react-native": ">=0.75.0"
+    "@types/react": "^19.1.1",
+    "react": "19.2.7",
+    "react-native": "0.85.3",
+    "typescript": "^5.9.2"
   }
 }
