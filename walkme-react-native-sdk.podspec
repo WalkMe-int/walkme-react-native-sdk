@@ -65,7 +65,7 @@ Pod::Spec.new do |s|
   s.homepage        = "https://github.com/WalkMe-int/walkme-react-native-sdk"
   s.license         = package["license"]
   s.authors         = { "WalkMe" => "support@walkme.com" }
-  s.platforms       = { :ios => "14.0" }
+  s.platforms       = { :ios => "15.0" }
   s.source          = { :git => "https://github.com/WalkMe-int/walkme-react-native-sdk.git", :tag => "#{s.version}" }
   s.swift_version   = "5.9"
 

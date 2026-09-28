@@ -13,7 +13,7 @@ React Native bridge for the WalkMe and WalkMe Power Mode (WalkMeEditor) SDKs on 
 
 | | Android | iOS |
 |---|---|---|
-| Min OS | Android 7.0 (API 24) | iOS 14 |
+| Min OS | Android 7.0 (API 24) | iOS 15 |
 | Native SDK source | JitPack | Swift Package Manager |
 | Required RN version | **≥ 0.75** | **≥ 0.75** |
 | Architectures | Legacy • New • Bridgeless | Legacy • New • Bridgeless |
