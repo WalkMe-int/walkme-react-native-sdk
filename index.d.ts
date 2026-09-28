@@ -14,6 +14,13 @@ export interface WalkMeStartOptions {
   analyticsEnabled?: boolean;
   /** Whether local (device) logs are enabled. Defaults to `false`. */
   localLogsEnabled?: boolean;
+  /**
+   * Base URL of self-hosted WalkMe content (http/https, no query or fragment).
+   * When set, the SDK loads `<selfHostedUrl>/<systemGuid>/settings.json` and the
+   * files it references from there instead of the WalkMe CDN.
+   * `WalkMe` mode only (iOS and Android) — ignored in `WalkMeEditor` mode.
+   */
+  selfHostedUrl?: string;
 }
 
 /** Well-known keys for `setEventUserVars`. */

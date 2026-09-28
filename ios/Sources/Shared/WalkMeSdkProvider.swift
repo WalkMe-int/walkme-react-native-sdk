@@ -39,6 +39,14 @@ public final class WMRNSdkProvider: NSObject {
         if let dc  = optionsDict["dataCenter"]  as? String    { options.dataCenter   = WalkMeDataCenter(dc) }
         if let on  = optionsDict["analyticsEnabled"] as? Bool { options.analyticMode = on ? .ON : .OFF }
         if let log = optionsDict["localLogsEnabled"] as? Bool { options.logsEnabled  = log }
+        if let url = optionsDict["selfHostedUrl"] as? String {
+            // Player-only option: the WalkMeEditor SDK has no `selfHostedUrl`.
+            #if WALKME_EDITOR
+            print("[WalkMeSdk] start: 'selfHostedUrl' is not supported in WalkMeEditor mode; ignoring")
+            #else
+            options.selfHostedUrl = url
+            #endif
+        }
         WalkMeEntryPoint.start(options: options)
     }
 

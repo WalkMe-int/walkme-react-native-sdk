@@ -114,6 +114,7 @@ internal class WalkMeSdkBridge(private val reactContext: ReactApplicationContext
         ).apply {
             if (options.hasKey("analyticsEnabled")) analyticsEnabled = options.getBoolean("analyticsEnabled")
             if (options.hasKey("localLogsEnabled")) localLogsEnabled = options.getBoolean("localLogsEnabled")
+            applyFlavorOptions(this, options)
         }
 
         val application = reactContext.applicationContext as Application
