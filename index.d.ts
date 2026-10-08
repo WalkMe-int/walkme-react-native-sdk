@@ -151,6 +151,18 @@ export interface WalkMeSdkInterface {
   sendEvent(name: string, attributes?: Record<string, unknown> | null): void;
 
   /**
+   * Report the app's current navigation route to the native side.
+   * EXPERIMENTAL: native currently only logs it.
+   */
+  setCurrentRoute(route: {
+    name: string;
+    key?: string;
+    path?: string;
+    params?: Record<string, unknown>;
+    chain?: string[];
+  }): void;
+
+  /**
    * Register or clear the item-info listener.
    * Pass a listener object to enable; pass `null` to clear.
    *

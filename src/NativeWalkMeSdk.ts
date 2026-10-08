@@ -34,6 +34,7 @@ export interface Spec extends TurboModule {
   sendEvent(name: string, attributes: Object | null): void;
   setItemInfoListener(enable: boolean): void;
   setAnalyticsListener(enable: boolean): void;
+  setCurrentRoute(route: Object): void;
 
   // Required by `NativeEventEmitter` on both architectures.
   addListener(eventName: string): void;

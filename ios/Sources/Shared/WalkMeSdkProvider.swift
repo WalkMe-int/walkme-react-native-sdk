@@ -95,6 +95,21 @@ public final class WMRNSdkProvider: NSObject {
         WalkMeEntryPoint.sendEvent(name: name, attributes: stringAttrs)
     }
 
+    // MARK: - Navigation
+
+    /// EXPERIMENTAL: only logs the JS route next to the screen ID the SDK
+    /// derives on its own, to see what the app's navigator provides.
+    @objc(setCurrentRoute:)
+    public static func setCurrentRoute(_ route: NSDictionary) {
+        let name = route["name"] as? String ?? "<nil>"
+        let key = route["key"] as? String ?? "<nil>"
+        let path = route["path"] as? String ?? "<nil>"
+        let chain = (route["chain"] as? [String])?.joined(separator: " > ") ?? "<nil>"
+        let params = route["params"] ?? "<nil>"
+        NSLog("[WalkMeSdk][route] name=%@ key=%@ path=%@ chain=%@ params=%@ | sdkScreenID=%@",
+              name, key, path, chain, String(describing: params), WMScreenTracker.screenID())
+    }
+
     // MARK: - Callbacks
 
     /// Retained for the lifetime of the subscription: `setItemCallbacksDelegate`

@@ -94,6 +94,16 @@ const WalkMeSDK = {
   },
 
   /**
+   * Report the app's current navigation route to the native side.
+   * EXPERIMENTAL: native currently only logs it.
+   * @param {{ name: string, key?: string, path?: string, params?: object, chain?: string[] }} route
+   */
+  setCurrentRoute(route) {
+    if (!RNWalkMeSdk) return;
+    RNWalkMeSdk.setCurrentRoute(route);
+  },
+
+  /**
    * Register or clear the item-info listener.
    *
    * Pass an object with optional callbacks to enable; pass `null` to clear.

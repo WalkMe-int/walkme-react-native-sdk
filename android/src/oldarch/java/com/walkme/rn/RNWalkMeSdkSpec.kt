@@ -51,6 +51,8 @@ abstract class RNWalkMeSdkSpec(reactContext: ReactApplicationContext) :
 
     abstract fun setAnalyticsListener(enable: Boolean)
 
+    abstract fun setCurrentRoute(route: ReadableMap)
+
     abstract fun addListener(eventName: String)
 
     abstract fun removeListeners(count: Double)

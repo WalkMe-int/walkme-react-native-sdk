@@ -94,6 +94,12 @@ class RNWalkMeSdkModule(reactContext: ReactApplicationContext) : RNWalkMeSdkSpec
         bridge.setAnalyticsListener(enable)
     }
 
+    /** EXPERIMENTAL: only logs the route for now (iOS logs it too). */
+    @ReactMethod
+    override fun setCurrentRoute(route: ReadableMap) {
+        android.util.Log.d("WalkMeSdk", "[route] ${route.toHashMap()}")
+    }
+
     /**
      * Required by `NativeEventEmitter`. Events are delivered through
      * `RCTDeviceEventEmitter`, which does its own subscription bookkeeping, so

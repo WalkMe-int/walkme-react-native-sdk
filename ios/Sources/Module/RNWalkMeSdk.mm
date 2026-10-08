@@ -96,6 +96,15 @@ RCT_EXPORT_METHOD(sendEvent:(NSString *)name attributes:(nullable NSDictionary *
   [WMRNSdkProvider sendEvent:name attributes:attributes];
 }
 
+#pragma mark - Navigation
+
+RCT_EXPORT_METHOD(setCurrentRoute:(NSDictionary *)route)
+{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [WMRNSdkProvider setCurrentRoute:route];
+  });
+}
+
 #pragma mark - Callbacks
 
 /**
