@@ -6,6 +6,7 @@ import com.facebook.react.bridge.ReadableMap
 import com.walkme.api.WalkMeSdkApi
 import com.walkme.api.WalkMeStartOptions
 import com.walkme.sdk.WalkMeSDK
+import com.walkme.sdk.selfHostedUrl
 
 internal val sdkInstance: WalkMeSdkApi = WalkMeSDK
 
